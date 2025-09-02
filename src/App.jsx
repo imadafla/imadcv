@@ -92,7 +92,7 @@ export default function App() {
       >
         <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-10 items-center">
           {/* Text */}
-          <div>
+          <div className="text-center md:text-left">
             <p className="uppercase text-sm text-gray-500 tracking-wider">
               Scientist & Researcher
             </p>
@@ -106,7 +106,7 @@ export default function App() {
               buildings, focusing on R&D, modeling, and optimization.
             </p>
             {/* Social / Contact Buttons */}
-            <div className="mt-6 flex space-x-4">
+            <div className="mt-6 flex flex-wrap justify-center md:justify-start gap-4">
               {[
                 {
                   href: "https://www.linkedin.com/in/imadaitlaasri/",
@@ -141,13 +141,14 @@ export default function App() {
           {/* Photo */}
           <div className="flex justify-center md:justify-end">
             <img
-              src="/profile.png" // transparent PNG
+              src="/profile.jpg"
               alt="Dr. Imad AIT LAASRI"
-              className="w-80 h-auto rounded-lg object-cover shadow-lg"
+              className="w-64 md:w-80 h-auto rounded-full object-cover shadow-lg"
             />
           </div>
         </div>
       </section>
+
 
       {/* Stats Section */}
       <section className="bg-white py-12 shadow-inner">
