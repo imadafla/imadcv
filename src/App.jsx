@@ -763,7 +763,8 @@ const paper = publicationsData[current];
 </section>
 
 {/* Publications Section */}
-    <section className="relative max-w-4xl mx-auto px-6 py-10">
+    <section id="publications"
+ className="relative max-w-4xl mx-auto px-6 py-10">
         <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-8">
     Publications
   </h2>
