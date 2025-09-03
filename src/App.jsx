@@ -259,16 +259,15 @@ const paper = publicationsData[current];
           }
         `}
         onClick={(e) => {
-          e.preventDefault();
-          setActiveSection(item);
-          const sectionEl = document.getElementById(item);
-          setTimeout(() => {
-            if (sectionEl) {
-              sectionEl.scrollIntoView({ behavior: "smooth" });
-            }
-            setMobileMenuOpen(false);
-          }, 200);
-        }}
+  e.preventDefault();
+  const sectionEl = document.getElementById(item);
+  const yOffset = -80; // navbar height
+  if (sectionEl) {
+    const y = sectionEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+  setMobileMenuOpen(false);
+}}
       >
         {item.charAt(0).toUpperCase() + item.slice(1)}
       </a>
