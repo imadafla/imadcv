@@ -357,8 +357,13 @@ const paper = publicationsData[current];
         Summary
       </h2>
       <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">
-        Experienced researcher in innovative applications of passive and active energy systems and materials for buildings, 
-        with expertise in modeling, optimization, and advanced visualization.
+        I am a researcher in innovative energy systems and sustainable building materials, 
+        specializing in PCM-based thermal storage, HVAC optimization, and adaptive building technologies. 
+        My work integrates experimental testing, AI-driven simulations, 
+        and smart control strategies to improve energy efficiency and indoor comfort. 
+        I hold a PhD in Energy, Thermal & Sustainable Building Technology, 
+        have led the creation of a DHW and HVAC performance lab, taught graduate courses, 
+        published 20+ peer-reviewed papers, and actively collaborate in international academic and industrial networks.
       </p>
     </div>
 
