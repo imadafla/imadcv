@@ -254,7 +254,7 @@ const paper = publicationsData[current];
       <a
         key={item}
         href={`#${item}`}
-        className={`px-6 py-3 text-left border-b border-gray-200 dark:border-gray-700 transition
+        className={`px-6 py-3 text-right border-b border-gray-200 dark:border-gray-700 transition
           ${
             activeSection === item
               ? "bg-blue-100/70 dark:bg-blue-900/70 text-blue-600 dark:text-blue-300 font-semibold"
