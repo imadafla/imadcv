@@ -1,11 +1,30 @@
-import { useState, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { Sun, Moon, ChevronLeft, ChevronRight } from "lucide-react";
 
 
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const containerRef = useRef(null);
+
+  const toggleExpanded = (idx) => {
+    const newExpanded = [...expanded];
+    newExpanded[idx] = !newExpanded[idx];
+    setExpanded(newExpanded);
+  };
+
+  const scrollToCard = (idx) => {
+    if (containerRef.current) {
+      const cardWidth = containerRef.current.children[0].offsetWidth + 24; // gap-6
+      containerRef.current.scrollTo({
+        left: cardWidth * idx,
+        behavior: "smooth",
+      });
+      setCurrent(idx);
+    }
+  };
 
   // Update HTML class for dark mode
   useEffect(() => {
@@ -69,16 +88,23 @@ const publicationsData = [
   }
 ];
 
-const nextSlide = () => {
-    setCurrent((prev) =>
-      prev === publicationsData.length - 1 ? 0 : prev + 1
-    );
+const prevSlide = () => {
+    const newIndex = current === 0 ? publicationsData.length - 1 : current - 1;
+    scrollToCard(newIndex);
   };
 
-  const prevSlide = () => {
-    setCurrent((prev) =>
-      prev === 0 ? publicationsData.length - 1 : prev - 1
-    );
+  const nextSlide = () => {
+    const newIndex = current === publicationsData.length - 1 ? 0 : current + 1;
+    scrollToCard(newIndex);
+  };
+
+  
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const scrollLeft = containerRef.current.scrollLeft;
+    const cardWidth = containerRef.current.children[0].offsetWidth + 24;
+    const idx = Math.round(scrollLeft / cardWidth);
+    setCurrent(idx);
   };
 
 const paper = publicationsData[current];
@@ -106,88 +132,86 @@ const paper = publicationsData[current];
         </a>
       ))}
 
-      {/* Dark Mode Toggle Desktop */}
-      <button
-        onClick={toggleDarkMode}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded transition flex items-center gap-2"
-      >
-        {darkMode ? (
-          <>
-            {/* Sun icon for Light mode */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v1.5M12 18v1.5M4.5 12h1.5M18 12h1.5M6.343 6.343l1.061 1.061M16.596 16.596l1.061 1.061M6.343 17.657l1.061-1.061M16.596 7.404l1.061-1.061M12 8a4 4 0 100 8 4 4 0 000-8z"
-              />
-            </svg>
-            Light
-          </>
-        ) : (
-          <>
-            {/* Moon icon for dark mode */}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              stroke="none"
-            >
-              <path d="M21.752 15.002A9 9 0 1112 3a7.5 7.5 0 009.752 12.002z" />
-            </svg>
-            Dark
-          </>
-        )}
-      </button>
+{/* Dark Mode Toggle */}
+<button
+  onClick={toggleDarkMode}
+  className="relative w-14 h-7 flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-1 transition"
+>
+  {/* Sun Icon */}
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5 text-yellow-500"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 4.5v1.5M12 18v1.5M4.5 12h1.5M18 12h1.5M6.343 6.343l1.061 1.061M16.596 16.596l1.061 1.061M6.343 17.657l1.061-1.061M16.596 7.404l1.061-1.061M12 8a4 4 0 100 8 4 4 0 000-8z"
+    />
+  </svg>
+
+  {/* Moon Icon */}
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5 text-gray-500 ml-auto"
+    fill="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path d="M21.752 15.002A9 9 0 1112 3a7.5 7.5 0 009.752 12.002z" />
+  </svg>
+
+  {/* Circle Indicator */}
+  <span
+    className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform ${
+      darkMode ? "translate-x-7" : "translate-x-0"
+    }`}
+  ></span>
+</button>
     </div>
 
-    {/* Mobile Hamburger */}
+    {/* Mobile Hamburger + Dark Mode Toggle */}
     <div className="md:hidden flex items-center space-x-2">
       {/* Dark Mode Toggle Mobile */}
-      <button
-        onClick={toggleDarkMode}
-        className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded transition flex items-center gap-2"
-      >
-        {darkMode ? (
-          <>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4.5v1.5M12 18v1.5M4.5 12h1.5M18 12h1.5M6.343 6.343l1.061 1.061M16.596 16.596l1.061 1.061M6.343 17.657l1.061-1.061M16.596 7.404l1.061-1.061M12 8a4 4 0 100 8 4 4 0 000-8z"
-              />
-            </svg>
-            Light
-          </>
-        ) : (
-          <>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              stroke="none"
-            >
-              <path d="M21.752 15.002A9 9 0 1112 3a7.5 7.5 0 009.752 12.002z" />
-            </svg>
-            Dark
-          </>
-        )}
-      </button>
+<button
+  onClick={toggleDarkMode}
+  className="relative w-14 h-7 flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-1 transition"
+>
+  {/* Sun Icon */}
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5 text-yellow-500"
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 4.5v1.5M12 18v1.5M4.5 12h1.5M18 12h1.5M6.343 6.343l1.061 1.061M16.596 16.596l1.061 1.061M6.343 17.657l1.061-1.061M16.596 7.404l1.061-1.061M12 8a4 4 0 100 8 4 4 0 000-8z"
+    />
+  </svg>
+
+  {/* Moon Icon */}
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5 text-gray-500 ml-auto"
+    fill="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path d="M21.752 15.002A9 9 0 1112 3a7.5 7.5 0 009.752 12.002z" />
+  </svg>
+
+  {/* Circle Indicator */}
+  <span
+    className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform ${
+      darkMode ? "translate-x-7" : "translate-x-0"
+    }`}
+  ></span>
+</button>
 
       {/* Hamburger Menu */}
       <button
@@ -221,28 +245,28 @@ const paper = publicationsData[current];
     </div>
   </div>
 
-{/* Mobile Menu */}
 {mobileMenuOpen && (
-  <div className="md:hidden bg-white dark:bg-gray-800 shadow-md flex flex-col items-end">
+  <div className="md:hidden w-full bg-white dark:bg-gray-800 shadow-lg flex flex-col">
     {sections.map((item) => (
       <a
         key={item}
         href={`#${item}`}
-        className={`block px-6 py-3 w-full text-right rounded transition-colors duration-300
-          ${activeSection === item ? "bg-blue-100/70 dark:bg-blue-900/70 text-blue-600 dark:text-blue-300" : "text-gray-800 dark:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-700/50"}
+        className={`px-6 py-3 text-left border-b border-gray-200 dark:border-gray-700 transition
+          ${
+            activeSection === item
+              ? "bg-blue-100/70 dark:bg-blue-900/70 text-blue-600 dark:text-blue-300"
+              : "text-gray-800 dark:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-700/50"
+          }
         `}
         onClick={(e) => {
-          e.preventDefault(); // prevent instant jump
-          setActiveSection(item); // highlight immediately
+          e.preventDefault();
+          setActiveSection(item);
           const sectionEl = document.getElementById(item);
-
-          // Highlight for 200ms before scrolling
           setTimeout(() => {
             if (sectionEl) {
               sectionEl.scrollIntoView({ behavior: "smooth" });
             }
-            setActiveSection(""); // remove highlight after starting scroll
-            setMobileMenuOpen(false); // close menu
+            setMobileMenuOpen(false);
           }, 200);
         }}
       >
@@ -251,6 +275,7 @@ const paper = publicationsData[current];
     ))}
   </div>
 )}
+
 </nav>
 
 {/* Hero Section */}
@@ -768,89 +793,95 @@ const paper = publicationsData[current];
 </section>
 
 {/* Publications Section */}
-    <section id="publications"
- className="relative max-w-4xl mx-auto px-6 py-10">
-        <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-8">
+<section id="publications" className="relative max-w-4xl mx-auto px-6 py-10">
+  <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-8">
     Publications
   </h2>
-      {/* Card */}
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-        {/* Image */}
-        <div className="w-full flex justify-center bg-gray-100 dark:bg-gray-700">
-          <img
-  src={paper.image}
-  alt={paper.title}
-  className="w-full max-h-[300px] object-contain bg-white"
-/>
-        </div>
 
-        {/* Content */}
-        <div className="p-6 flex flex-col gap-2">
-          <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
-            {paper.title}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            {paper.authors}
-          </p>
-          <p className="text-sm italic text-gray-500 dark:text-gray-400">
-            {paper.journal}
-          </p>
+  {/* Cards Container */}
+  <div
+  ref={containerRef}
+  className="flex gap-6 overflow-x-auto snap-x snap-mandatory md:overflow-hidden scrollbar-hide"
+  onScroll={handleScroll}
+>
+  {publicationsData.map((paper, idx) => (
+    <div
+      key={idx}
+      className="flex-shrink-0 w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden snap-center"
+    >
+      {/* Image */}
+      <div className="w-full flex justify-center bg-gray-100 dark:bg-gray-700 p-4">
+        <img
+          src={paper.image}
+          alt={paper.title}
+          className="max-h-[320px] w-auto object-contain"
+        />
+      </div>
 
-          {/* Abstract with expand */}
-          <p className="text-gray-700 dark:text-gray-200 mt-2">
-            {expanded ? paper.abstract : paper.abstract.slice(0, 180) + "..."}
-          </p>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-blue-600 dark:text-blue-400 underline text-sm self-start"
+      {/* Content */}
+      <div className="p-6 flex flex-col gap-2">
+        <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+          {paper.title}
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-300">{paper.authors}</p>
+        <p className="text-sm italic text-gray-500 dark:text-gray-400">{paper.journal}</p>
+
+        <p className="text-gray-700 dark:text-gray-200 mt-2">
+          {expanded[idx] ? paper.abstract : paper.abstract.slice(0, 180) + "..."}
+        </p>
+        <button
+          onClick={() => toggleExpanded(idx)}
+          className="text-blue-600 dark:text-blue-400 underline text-sm self-start"
+        >
+          {expanded[idx] ? "View Less" : "View More"}
+        </button>
+
+        <div className="flex justify-end mt-4">
+          <a
+            href={paper.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-blue-600 text-white px-5 py-2 rounded-xl shadow-md hover:bg-blue-700 transition"
           >
-            {expanded ? "View Less" : "View More"}
-          </button>
-
-          {/* Button */}
-          <div className="flex justify-end">
-            <a
-              href={paper.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-5 py-2 rounded-xl shadow-lg hover:scale-105 hover:shadow-xl transition transform"
-            >
-              View Paper
-            </a>
-          </div>
+            View Paper
+          </a>
         </div>
-
-        {/* Arrows */}
-        <button
-          onClick={prevSlide}
-          className="absolute top-1/2 left-4 -translate-y-1/2 bg-gradient-to-r from-purple-500 to-blue-500 text-white p-3 rounded-full shadow-lg hover:scale-110 hover:shadow-purple-400/70 transition transform"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        <button
-          onClick={nextSlide}
-          className="absolute top-1/2 right-4 -translate-y-1/2 bg-gradient-to-r from-purple-500 to-blue-500 text-white p-3 rounded-full shadow-lg hover:scale-110 hover:shadow-blue-400/70 transition transform"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
       </div>
+    </div>
+  ))}
+</div>
 
-      {/* Dots */}
-      <div className="flex justify-center gap-2 mt-6">
-        {publicationsData.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCurrent(idx)}
-            className={`w-3 h-3 rounded-full transition ${
-              idx === current
-                ? "bg-gradient-to-r from-blue-500 to-purple-500 scale-125 shadow-lg"
-                : "bg-gray-400 dark:bg-gray-600"
-            }`}
-          />
-        ))}
-      </div>
-    </section>
 
+  {/* Arrows (desktop only) */}
+  <button
+    onClick={prevSlide}
+    className="hidden md:flex absolute top-1/2 -translate-y-1/2 left-3 md:-left-12 bg-blue-600 text-white p-3 rounded-full shadow-md hover:bg-blue-700 transition"
+  >
+    <ChevronLeft className="w-6 h-6" />
+  </button>
+
+  <button
+    onClick={nextSlide}
+    className="hidden md:flex absolute top-1/2 -translate-y-1/2 right-3 md:-right-12 bg-blue-600 text-white p-3 rounded-full shadow-md hover:bg-blue-700 transition"
+  >
+    <ChevronRight className="w-6 h-6" />
+  </button>
+
+  {/* Dots */}
+  <div className="flex justify-center gap-2 mt-6">
+    {publicationsData.map((_, idx) => (
+      <button
+        key={idx}
+        onClick={() => scrollToCard(idx)}
+        className={`w-3 h-3 rounded-full transition ${
+          idx === current
+            ? "bg-blue-600 scale-125 shadow-md"
+            : "bg-gray-400 dark:bg-gray-600"
+        }`}
+      />
+    ))}
+  </div>
+</section>
 
 {/* Contact Section */}
 <section
