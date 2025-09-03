@@ -356,7 +356,7 @@ const paper = publicationsData[current];
       <h2 className="text-4xl md:text-5xl font-extrabold leading-tight">
         Summary
       </h2>
-      <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">
+      <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 text-justify">
         I am a researcher in innovative energy systems and sustainable building materials, 
         specializing in PCM-based thermal storage, HVAC optimization, and adaptive building technologies. 
         My work integrates experimental testing, AI-driven simulations, 
