@@ -716,7 +716,7 @@ const paper = publicationsData[current];
         { name: "Rhino", logo: "https://www.clipartmax.com/png/middle/342-3424718_rhino-3d-logo-png.png" },
         { name: "Grasshopper", logo: "https://images.seeklogo.com/logo-png/29/1/grasshopper-3d-logo-png_seeklogo-291372.png" },
         { name: "Ladybug", logo: "https://www.ladybug.tools/assets/img/ladybug.png" },
-        { name: "Honeybee", logo: "https://www.clipartmax.com/png/middle/71-719603_honeybee-ladybug-grasshopper-logo.png" },
+        { name: "Honeybee", logo: "https://www.clipartmax.com/png/full/71-719603_honeybee-ladybug-grasshopper-logo.png" },
         { name: "AutoCAD", logo: "https://images.seeklogo.com/logo-png/48/2/autocad-logo-png_seeklogo-482394.png" },
         { name: "Solidworks", logo: "https://img.icons8.com/color/512/solidworks.png" },
         { name: "ANSYS", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Ansys_logo_%282019%29.svg/855px-Ansys_logo_%282019%29.svg.png" },
