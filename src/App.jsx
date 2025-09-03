@@ -257,26 +257,39 @@ const paper = publicationsData[current];
         className={`px-6 py-3 text-left border-b border-gray-200 dark:border-gray-700 transition
           ${
             activeSection === item
-              ? "bg-blue-100/70 dark:bg-blue-900/70 text-blue-600 dark:text-blue-300"
+              ? "bg-blue-100/70 dark:bg-blue-900/70 text-blue-600 dark:text-blue-300 font-semibold"
               : "text-gray-800 dark:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-700/50"
           }
         `}
         onClick={(e) => {
-  e.preventDefault();
-  const sectionEl = document.getElementById(item);
-  const yOffset = -80; // navbar height
-  if (sectionEl) {
-    const y = sectionEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
-    window.scrollTo({ top: y, behavior: "smooth" });
-  }
-  setMobileMenuOpen(false);
-}}
+          e.preventDefault();
+
+          // Highlight clicked section temporarily
+          setActiveSection(item);
+
+          // Scroll after small delay so highlight is visible
+          setTimeout(() => {
+            const sectionEl = document.getElementById(item);
+            const yOffset = -80; // navbar height
+            if (sectionEl) {
+              const y = sectionEl.getBoundingClientRect().top + window.pageYOffset + yOffset;
+              window.scrollTo({ top: y, behavior: "smooth" });
+            }
+
+            // Close mobile menu
+            setMobileMenuOpen(false);
+
+            // Reset highlight so next menu open is fresh
+            setActiveSection(null);
+          }, 100); // 100ms delay for visual feedback
+        }}
       >
         {item.charAt(0).toUpperCase() + item.slice(1)}
       </a>
     ))}
   </div>
 )}
+
 
 </nav>
 
