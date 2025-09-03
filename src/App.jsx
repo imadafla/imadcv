@@ -899,7 +899,7 @@ const paper = publicationsData[current];
 </section>
 
 {/* Contact Section */}
-<section
+<section data-aos="fade-up"
   id="contact"
   className="relative pt-16 pb-0 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
 >
