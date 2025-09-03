@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import { Sun, Moon, ChevronLeft, ChevronRight } from "lucide-react";
+import AOS from "aos";
+import "aos/dist/aos.css";
 
 
 export default function App() {
@@ -28,6 +30,7 @@ export default function App() {
 
   // Update HTML class for dark mode
   useEffect(() => {
+    AOS.init({ duration: 800, once: true }); // duration in ms, once=true triggers only once
     if (darkMode) {
       document.documentElement.classList.add("dark");
     } else {
@@ -278,7 +281,7 @@ const paper = publicationsData[current];
 </nav>
 
 {/* Hero Section */}
-<section
+<section data-aos="fade-up"
   id="home"
   className="pt-28 bg-gray-50 dark:bg-gray-900 transition-colors duration-300"
 >
@@ -343,7 +346,7 @@ const paper = publicationsData[current];
 
 
 {/* Stats Section */}
-<section className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 py-16 shadow-inner transition-colors duration-300">
+<section data-aos="fade-up" className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 py-16 shadow-inner transition-colors duration-300">
   <div className="max-w-6xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-2xl transition">
       <h3 className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue-400">4+</h3>
@@ -365,7 +368,7 @@ const paper = publicationsData[current];
 </section>
 
 {/* Summary Section */}
-<section
+<section data-aos="fade-up"
   id="summary"
   className="relative pt-16 pb-12 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
 >
@@ -422,7 +425,7 @@ const paper = publicationsData[current];
 </section>
 
 {/* Experience Section */}
-<section
+<section data-aos="fade-up"
   id="experience"
   className="relative pt-4 pb-9 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
   style={{
@@ -526,7 +529,7 @@ const paper = publicationsData[current];
 
 
 {/* Education Section */}
-<section
+<section data-aos="fade-up"
   id="education"
   className="relative pt-4 pb-12 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
   style={{
@@ -597,7 +600,7 @@ const paper = publicationsData[current];
 </section>
 
 {/* Certifications Section */}
-<section
+<section data-aos="fade-up"
   id="certifications"
   className="relative pt-6 pb-6 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
 >
@@ -658,7 +661,7 @@ const paper = publicationsData[current];
 </section>
 
 {/* Skills Section */}
-<section
+<section data-aos="fade-up"
   id="skills"
   className="relative pt-6 pb-12 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
 >
@@ -742,7 +745,7 @@ const paper = publicationsData[current];
 
 
 {/* Languages Section */}
-<section
+<section data-aos="fade-up"
   id="languages"
   className="relative pt-6 pb-6 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
 >
@@ -792,7 +795,7 @@ const paper = publicationsData[current];
 </section>
 
 {/* Publications Section */}
-<section id="publications" className="relative max-w-4xl mx-auto px-6 py-10">
+<section data-aos="fade-up" id="publications" className="relative max-w-4xl mx-auto px-6 py-10">
   <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 dark:text-white mb-8">
     Publications
   </h2>
@@ -885,7 +888,7 @@ const paper = publicationsData[current];
 {/* Contact Section */}
 <section
   id="contact"
-  className="relative pt-16 pb-12 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
+  className="relative pt-16 pb-0 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300"
 >
   {/* Decorative grid in background */}
   <div
@@ -900,82 +903,99 @@ const paper = publicationsData[current];
   ></div>
 
   {/* Section Header */}
-  <div className="relative max-w-4xl mx-auto text-center mb-12 px-6">
-    <h2 className="text-4xl md:text-5xl font-extrabold mb-4">Contact Me</h2>
-    <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">
-      Get in touch via email or connect via research platforms below.
+  <div className="relative max-w-5xl mx-auto text-center mb-12 px-6">
+    <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 tracking-tight leading-tight md:leading-snug">
+      Contact Me
+    </h2>
+    <p className="text-lg sm:text-xl md:text-2xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
+      I’m always open to collaborating, sharing ideas, or connecting through research platforms. Reach out via email or follow me online.
     </p>
   </div>
 
   {/* Contact Cards */}
-<div className="relative max-w-4xl mx-auto flex flex-col md:flex-row gap-8 px-6 justify-center">
-  {[
-    {
-      type: "Location",
-      value: "Marrakech, Morocco",
-      icon: "📍",
-    },
-    {
-      type: "Email",
-      value: "imadaitlaasri@gmail.com",
-      icon: "✉️",
-      link: "mailto:imadaitlaasri@gmail.com"
-    }
-  ].map((c, idx) => {
-    const CardWrapper = c.link ? "a" : "div";
-    return (
-      <CardWrapper
-        key={idx}
-        href={c.link || undefined}
-        className="group flex-1 bg-white dark:bg-gray-700 rounded-2xl p-6 flex items-center gap-4 transform transition duration-500 hover:scale-105 hover:-translate-y-2 cursor-pointer"
-      >
-        <div className="w-14 h-14 flex items-center justify-center text-3xl bg-blue-100 dark:bg-blue-600 rounded-full transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
-          {c.icon}
-        </div>
-        <div className="flex-1">
-          <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">{c.value}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-300">{c.type}</p>
-        </div>
-      </CardWrapper>
-    );
-  })}
-</div>
+  <div className="relative max-w-5xl mx-auto flex flex-col md:flex-row gap-8 px-6 justify-center">
+    {[
+      {
+        type: "Location",
+        value: "Marrakech, Morocco",
+        icon: "📍",
+      },
+      {
+        type: "Email",
+        value: "imadaitlaasri@gmail.com",
+        icon: "✉️",
+        link: "mailto:imadaitlaasri@gmail.com",
+      },
+    ].map((c, idx) => {
+      const CardWrapper = c.link ? "a" : "div";
+      return (
+        <CardWrapper
+          key={idx}
+          href={c.link || undefined}
+          className="group flex-1 bg-white dark:bg-gray-700 rounded-2xl p-6 flex items-center gap-4 transform transition duration-500 hover:scale-105 hover:-translate-y-2 cursor-pointer"
+        >
+          <div className="w-14 h-14 flex items-center justify-center text-3xl bg-blue-100 dark:bg-blue-600 rounded-full transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
+            {c.icon}
+          </div>
+          <div className="flex-1">
+            <p className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-800 dark:text-gray-100">
+              {c.value}
+            </p>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-300">{c.type}</p>
+          </div>
+        </CardWrapper>
+      );
+    })}
+  </div>
 
   {/* Social / Research Icons */}
-  <div className="mt-8 flex justify-center gap-6">
-    {[{
-      name: "LinkedIn",
-      icon: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/linkedin.svg",
-      link: "https://www.linkedin.com/in/imadaitlaasri/"
-    },{
-      name: "ResearchGate",
-      icon: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/researchgate.svg",
-      link: "https://www.researchgate.net/profile/Imad-Ait-Laasri"
-    },{
-      name: "ORCID",
-      icon: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/orcid.svg",
-      link: "https://orcid.org/0000-0002-3977-5490"
-    }].map((s, idx) => (
+  <div className="mt-12 flex justify-center gap-6">
+    {[
+      {
+        name: "LinkedIn",
+        icon: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/linkedin.svg",
+        link: "https://www.linkedin.com/in/imadaitlaasri/",
+      },
+      {
+        name: "ResearchGate",
+        icon: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/researchgate.svg",
+        link: "https://www.researchgate.net/profile/Imad-Ait-Laasri",
+      },
+      {
+        name: "ORCID",
+        icon: "https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/orcid.svg",
+        link: "https://orcid.org/0000-0002-3977-5490",
+      },
+    ].map((s, idx) => (
       <a
         key={idx}
         href={s.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="w-10 h-10 flex items-center justify-center bg-white dark:bg-gray-700 rounded-full transition-transform duration-300 hover:scale-110"
+        className="w-12 h-12 flex items-center justify-center bg-white dark:bg-gray-700 rounded-full transition-transform duration-300 hover:scale-125"
         title={s.name}
       >
-        <img src={s.icon} alt={s.name} className="w-6 h-6 object-contain" />
+        <img src={s.icon} alt={s.name} className="w-6 h-6 sm:w-7 sm:h-7 object-contain" />
       </a>
     ))}
   </div>
-</section>
 
 {/* Footer */}
-<footer className="bg-gray-100 dark:bg-gray-800 text-center py-6 text-sm text-gray-500 dark:text-gray-300 transition-colors duration-300">
-  © {new Date().getFullYear()} Dr. Imad AIT LAASRI. All rights reserved. 
-  <br />
-  Website designed and developed by Dr. Imad AIT LAASRI.
+<footer className="mt-16 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 text-center py-8 text-sm sm:text-base text-gray-500 dark:text-gray-300 transition-colors duration-300 relative">
+  
+  {/* Line above footer */}
+  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-0.5 bg-blue-400 dark:bg-blue-600 rounded-full"></div>
+
+  {/* Footer Text */}
+  <p className="mb-2">
+    © {new Date().getFullYear()} <span className="font-bold text-blue-500 dark:text-blue-400 animate-pulse shadow-lg">Dr. Imad AIT LAASRI</span>. All rights reserved.
+  </p>
+  <p>
+    Website designed and developed by <span className="font-semibold text-blue-500 dark:text-blue-400 animate-pulse shadow-md">Dr. Imad AIT LAASRI</span>.
+  </p>
 </footer>
+
+</section>
 
     </div>
   );
