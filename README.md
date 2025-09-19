@@ -11,6 +11,6 @@ It provides an interactive and responsive way to showcase professional profile, 
 ![Phone](https://github.com/imadafla/imadcv/blob/main/src/demos/phone_cv.gif)
 
 ### Desktop Version:
-![Desktop](https://github.com/imadafla/imadcv/blob/main/src/demos/desktop_cv.gif?raw
+![Desktop](https://github.com/imadafla/imadcv/blob/main/src/demos/desktop_cv.gif)
 
 ### To check the cv go to https://imadcv.vercel.app/
