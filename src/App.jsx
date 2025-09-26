@@ -370,7 +370,7 @@ const paper = publicationsData[current];
       <p className="text-gray-600 dark:text-gray-300 mt-2">Publications</p>
     </div>
     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-2xl transition">
-      <h3 className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue-400">10+</h3>
+      <h3 className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue-400">5+</h3>
       <p className="text-gray-600 dark:text-gray-300 mt-2">Projects</p>
     </div>
     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:shadow-2xl transition">
