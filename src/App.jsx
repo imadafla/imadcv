@@ -413,7 +413,7 @@ export default function App() {
             className="relative w-full md:w-auto flex justify-center md:block md:absolute md:bottom-0 md:right-6 md:z-10"
           >
               <img
-                src="public/profile.png"
+                src="/profile.png"
                 alt="Dr. Imad AIT LAASRI"
                 className="w-auto h-auto max-h-[400px] md:max-h-[70vh] object-contain object-bottom drop-shadow-2xl dark:drop-shadow-[0_0_4px_rgba(255,255,255,1)]"
               />
