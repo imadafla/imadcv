@@ -1,10 +1,31 @@
-## ImadCV – Personal CV Web App
+# ⭐ ImadCV – Personal CV Web App
 
-<img width="64" height="67" alt="image" src="https://github.com/user-attachments/assets/bd84f731-cdfe-43e3-9c30-0760d3a03d67" />
+A modern, interactive, and fully responsive **Curriculum Vitae web application** built using **React + TailwindCSS**, enhanced with clean UI components powered by **Lucide Icons**.  
+This application transforms a traditional CV into a **dynamic digital experience**, accessible on any device.
 
-# Main Task  
-A modern **Curriculum Vitae (CV) web application** built with **React, TailwindCSS, and Lucide icons**.  
-It provides an interactive and responsive way to showcase professional profile, skills, publications, and projects.
+🌐 **Live Demo:** https://imadcv.vercel.app/
 
-# Additional Info 
-To check the cv go to https://imadcv.vercel.app/
+---
+
+## 🚀 Features
+
+- ⚡ **Modern React UI** – Fast and component-based architecture  
+- 🎨 **TailwindCSS Styling** – Utility-first, clean, and responsive  
+- 📱 **Fully Responsive** – Desktop, tablet, and mobile ready  
+- 🧩 **Modular Components** – Easy to extend and maintain  
+- 🧑‍💼 **Professional CV Layout** – Experience, education, publications, skills, and projects  
+- 🌙 **Dark/Light Mode Support** (if enabled)  
+- 🔍 **Lucide Icons** for sleek visuals  
+- 🚀 **Vercel Deployment** – Optimized for instant global delivery  
+
+---
+
+## 🎥 Demo
+
+### 🖥️ Desktop Preview
+![Desktop Demo](https://github.com/imadafla/imadcv/blob/main/src/demos/desktop_cv.gif?raw=1)
+
+### 📱 Phone Preview
+![Phone Demo](https://github.com/imadafla/imadcv/blob/main/src/demos/phone_cv.gif?raw=1)
+
+
