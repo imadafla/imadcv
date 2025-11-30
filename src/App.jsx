@@ -13,6 +13,7 @@ import {
   FileText, 
   Calculator as CalcIcon, 
   Minus, 
+  Square, // FIXED: Re-added Square to imports
   Maximize2, 
   Minimize2, 
   Ghost, 
@@ -31,12 +32,10 @@ import {
   Send,
   Building,
   Wind,
-  Thermometer,
   ArrowUpRight,
-  Play,
   Github,
   BookOpen,
-  Power // Added Power Icon
+  Power
 } from "lucide-react";
 
 // ==========================================
@@ -135,7 +134,6 @@ const publicationsData = [
     },
 ];
 
-// FULL LIST OF SIMULATION TOOLS
 const simulationTools = [
     { name: "EnergyPlus", logo: "https://energyplus.net/assets/images/eplus_logo.png" },
     { name: "OpenStudio", logo: "https://openstudiocoalition.org/img/OpenStudio+Coalition-logo-crop.png" },
@@ -150,7 +148,8 @@ const simulationTools = [
     { name: "ANSYS", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Ansys_logo_%282019%29.svg/855px-Ansys_logo_%282019%29.svg.png" },
     { name: "TRNSYS", logo: "https://usoftly.ir/wp-content/uploads/2024/02/TRNSYS-18.02.png" },
     { name: "DesignBuilder", logo: "https://designbuilder.co.uk/templates/r_explorer/custom/images/DesignBuilder-logo.png" },
-    { name: "LabView", logo: "https://www.livewires-automation.co.uk/uploads/images/section-widget-images/NI-LabVIEW-Logo.png" }
+    { name: "LabView", logo: "https://www.livewires-automation.co.uk/uploads/images/section-widget-images/NI-LabVIEW-Logo.png" },
+    { name: "Python", logo: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" },
 ];
 
 // ==========================================
@@ -227,7 +226,7 @@ const HVACGame = () => {
             <div className="flex flex-col md:flex-row gap-4 h-full overflow-hidden">
                 {/* LEFT: CONTROLS */}
                 <div className="w-full md:w-1/3 space-y-3 pr-1 overflow-y-auto">
-                    {/* Solar */}s
+                    {/* Solar */}
                     <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-200 shadow-sm">
                         <div className="flex justify-between items-center mb-1">
                             <span className="font-bold text-xs uppercase text-yellow-700">Solar Intensity</span>
