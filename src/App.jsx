@@ -93,6 +93,14 @@ const callGemini = async (prompt, systemInstruction = "") => {
 
 const publicationsData = [
     {
+      title: "Model predictive control of a phase change material–enhanced switchable insulation system using long short-term memory networks and genetic optimization",
+      authors: "Ait Laasri, I., Es-sakali, N., Charai, M., & Mghazli, M. O. (2026).",
+      journal: "Automation in Construction",
+      abstract: "This paper presents a computational framework for transforming building facades into active climate-responsive systems through an integrated automation architecture. The study's primary goal is to maximize energy efficiency by using real-time Model Predictive Control to organize the synergy between phase change materials (PCMs) and switchable insulation systems (SIS). A key contribution is an autonomous hybrid envelope, driven by a decision support system, implemented using a framework that bridges EnergyPlus with a long short-term memory neural network (LSTM) and a genetic algorithm. The methods involved numerical modeling validated against experimental data with high precision to automate SIS actuation. Key results demonstrate that an intelligent control system achieved an 84.08% total energy reduction over uninsulated baselines and a 53.16% improvement over static insulation. With a 25 ms inference speed and a 5-s optimization loop, the framework provides a computationally efficient and scalable solution for the automated management of constructed facilities in diverse climates.",
+      link: "https://www.sciencedirect.com/science/article/pii/S0926580526003079",
+      image: "https://ars.els-cdn.com/content/image/1-s2.0-S0926580526003079-ga1_lrg.jpg"
+    },
+    {
       title: "Hydrogen-driven smart energy districts in hot climates: Coupling passive, active, and water synergies for net-zero carbon cities",
       authors: "Es-sakali, N., Ait Laasri, I., Er-retby, H., & Mghazli, M. O. (2026).",
       journal: "Energy Conversion and Management",
