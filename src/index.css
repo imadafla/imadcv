@@ -5,3 +5,29 @@
 html {
   scroll-behavior: smooth;
 }
+body {
+  background-color: var(--color-slate-50);
+}
+.dark body {
+  background-color: var(--color-slate-950);
+}
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Justified body text across the page sections; centered blocks stay centered */
+@layer base {
+  section p,
+  section li {
+    text-align: justify;
+    hyphens: auto;
+  }
+  section .text-center p,
+  section .text-center li {
+    text-align: center;
+  }
+}
+

@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import Particles, { ParticlesProvider } from "@tsparticles/react";
+import { loadSlim } from "@tsparticles/slim";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronLeft, 
@@ -35,7 +37,8 @@ import {
   ArrowUpRight,
   Github,
   BookOpen,
-  Power
+  Power,
+  ChevronDown
 } from "lucide-react";
 
 // ==========================================
@@ -69,26 +72,318 @@ const callGemini = async (prompt, systemInstruction = "") => {
     return "ImadBot (Offline): Dr. Imad is an expert in Energy Systems, CFD, and Phase Change Materials.";
   }
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-        }),
-      }
-    );
+  // Transient failures (network, 429 rate limit, 5xx overload, empty reply) are retried with backoff;
+  // client errors like an invalid or restricted key (400/403) fail immediately.
+  const MAX_ATTEMPTS = 4;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    let retryable = true;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      const response = await fetch(
+        // "gemini-flash-latest" is an alias that tracks Google's current Flash model (dated preview models get retired)
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+          }),
+          signal: controller.signal,
+        }
+      ).finally(() => clearTimeout(timeout));
 
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Error: No response.";
-  } catch (error) {
-    console.error("AI API call failed:", error);
-    return "Error: Could not connect to AI services.";
+      if (!response.ok) {
+        retryable = response.status === 429 || response.status >= 500;
+        throw new Error(`API Error: ${response.status}`);
+      }
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("").trim();
+      if (text) return text;
+      throw new Error("Empty response");
+    } catch (error) {
+      console.warn(`AI API call failed (attempt ${attempt}/${MAX_ATTEMPTS}):`, error);
+      if (!retryable || attempt === MAX_ATTEMPTS) break;
+      await new Promise(r => setTimeout(r, 800 * 2 ** (attempt - 1) + Math.random() * 300)); // ~0.8s, 1.6s, 3.2s
+    }
   }
+  return "Error: Could not connect to AI services.";
+};
+
+const LOGOS = {
+  gep: "https://www.greenenergypark.ma/_next/image?url=%2Fimages%2Flogos%2Fgep.png&w=384&q=75",
+  um6p: "https://upload.wikimedia.org/wikipedia/commons/b/bf/UM6P_wordmark_%282024%29.svg",
+  ocp: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/OCP_Group.svg/330px-OCP_Group.svg.png",
+  daad: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/DAAD_Logo.svg/330px-DAAD_Logo.svg.png",
+  kth: "/logos/kth-white.svg",
+  empa: "/logos/empa.png",
+  offenburg: "/logos/offenburg.png",
+};
+
+const FLAGS = {
+  Morocco: "https://flagcdn.com/ma.svg",
+  Switzerland: "https://flagcdn.com/ch.svg",
+  Germany: "https://flagcdn.com/de.svg",
+  Sweden: "https://flagcdn.com/se.svg",
+  "European Union": "https://flagcdn.com/eu.svg",
+  France: "https://flagcdn.com/fr.svg",
+  "South Korea": "https://flagcdn.com/kr.svg",
+  USA: "https://flagcdn.com/us.svg",
+};
+
+const projectsData = [
+  {
+    title: "Hydrogen Integration in Urban Energy Systems for Hot Climates",
+    summary: "Simulation and control of hydrogen-based storage in urban multi-energy systems, with insights from Switzerland and Morocco.",
+    role: "Principal Investigator (Green Energy Park)",
+    funder: "Leading House MENA",
+    period: "2026 – 2027",
+    countries: ["Switzerland", "Morocco"],
+    partners: [{ name: "Green Energy Park", logo: LOGOS.gep }, { name: "Empa", logo: LOGOS.empa }],
+    tags: ["Green Hydrogen", "Multi-Energy Systems", "Control"],
+    link: "https://www.hes-so.ch/en/recherche-innovation/research-projects/detail-projet-recherche/optimizing-hydrogen-integration",
+  },
+  {
+    title: "HYSTORE – Hybrid Services from Advanced Thermal Energy Storage",
+    summary: "PCM thermal storage modeling with lumped-resistance models and MILP optimization, in collaboration with the KTH team.",
+    role: "Collaborator (KTH team)",
+    funder: "Horizon Europe (EU)",
+    countries: ["European Union", "Sweden"],
+    partners: [{ name: "KTH Royal Institute of Technology", logo: LOGOS.kth, dark: true }, { name: "Green Energy Park", logo: LOGOS.gep }],
+    tags: ["PCM Storage", "MILP Optimization", "Lumped Models"],
+    link: "https://www.hystore-project.eu/",
+  },
+  {
+    title: "Green Smart Building – Chaire EESEPS",
+    summary: "Energy-systems axis of a flagship R&D program on building energy efficiency, supervising 2 PhD theses on PCM for DHW and HVAC.",
+    role: "Work Package Leader (Axis 2)",
+    funder: "OCP / UM6P",
+    period: "2024 – 2028",
+    countries: ["Morocco"],
+    partners: [{ name: "OCP", logo: LOGOS.ocp }, { name: "UM6P", logo: LOGOS.um6p }, { name: "Green Energy Park", logo: LOGOS.gep }],
+    tags: ["HVAC", "DHW", "PCM"],
+  },
+  {
+    title: "PGBioP2+ – Phosphogypsum Bio-Plasterboard",
+    summary: "PCM-based composite sandwich panels that enhance the thermal performance of sustainable building materials.",
+    role: "Task Leader – PCM Composites",
+    funder: "OCP",
+    period: "2023 – 2026",
+    countries: ["Morocco"],
+    partners: [{ name: "OCP", logo: LOGOS.ocp }, { name: "Green Energy Park", logo: LOGOS.gep }],
+    tags: ["PCM Composites", "Passive Thermal Management"],
+  },
+  {
+    title: "High-Performance Village Schools in a Changing Environment",
+    summary: "Low-energy school building concepts, digitization and socio-economic evaluation in Moroccan and German contexts.",
+    role: "Research Team Member",
+    funder: "DAAD (Germany)",
+    period: "2021 – 2024",
+    countries: ["Germany", "Morocco"],
+    partners: [{ name: "DAAD", logo: LOGOS.daad }, { name: "Hochschule Offenburg", logo: LOGOS.offenburg }, { name: "Green Energy Park", logo: LOGOS.gep }],
+    tags: ["Low-Energy Buildings", "Digitization"],
+  },
+];
+
+const experienceData = [
+  {
+    company: "Green Energy Park (UM6P / IRESEN)",
+    role: "Research Scientist / Post-Doc – Novel Energy Systems & Materials for Buildings",
+    period: "Jul 2024 – Present",
+    location: "Ben Guerir, Morocco",
+    logo: LOGOS.gep,
+    details: [
+      "Launched a thermal testing laboratory for DHW and HVAC systems with innovative materials.",
+      "Developed physics-based and hybrid AI models (MPC, reduced-order models) integrated into a 3D building thermal simulation web platform.",
+      "Modeled hydrogen-driven smart energy districts and led LCA of PCM integration; co-supervising 2 PhD theses.",
+    ],
+    tags: ["MPC", "Reduced-Order Modeling", "Hydrogen Energy Systems", "LCA", "Thermal Energy Storage"],
+  },
+  {
+    company: "Green Energy Park (UM6P / IRESEN)",
+    role: "Researcher – Green Buildings & Energy Efficiency",
+    period: "Jun 2021 – May 2024",
+    location: "Ben Guerir, Morocco",
+    logo: LOGOS.gep,
+    details: [
+      "Optimized passive and hybrid building systems, numerically and experimentally, across diverse climates.",
+      "Designed topology-optimized latent heat thermal energy storage (LHTES) units.",
+      "Building energy co-simulation (EnergyPlus, Python, COMSOL); 9+ international conference talks.",
+    ],
+    tags: ["LHTES", "Topology Optimization", "Co-simulation", "EnergyPlus", "COMSOL"],
+  },
+  {
+    company: "School of Architecture, Planning & Design – UM6P",
+    role: "Adjunct Professor – Energy & Optimization for Architects",
+    period: "Sep 2024 – Jan 2025",
+    location: "Ben Guerir, Morocco",
+    logo: LOGOS.um6p,
+    details: [
+      "Taught a full-semester course on energy and optimization to third-year architecture students.",
+      "Professor in the UM6P Executive Master program: energy efficiency in industry, thermal management and energy audits.",
+    ],
+  },
+  {
+    company: "Hassan II University – Faculty of Sciences Ain Chock",
+    role: "Adjunct Professor – Energy Efficiency",
+    period: "Jan 2021 – Jul 2022",
+    location: "Casablanca, Morocco",
+    logo: "https://vectorseek.com/wp-content/uploads/2023/08/Universite-Hassan-2-de-Casablanca-Maroc-Logo-Vector.svg--300x231.png",
+    details: ["Taught two full-semester courses on Computational Fluid Dynamics (CFD) and heat transfer modeling & optimization in the Specialized Master in Renewable Energies and Energy Systems."],
+  },
+];
+
+const educationData = [
+  { degree: "PhD", field: "Energy, Thermal & Sustainable Building Technology", school: "Cadi Ayyad University", period: "2021 – 2024", honor: "Highest honors", thesis: "Innovative applications of phase change materials in passive and active systems for building energy optimization.", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Universite_Cadi_Ayyad.png/250px-Universite_Cadi_Ayyad.png" },
+  { degree: "Master's Degree", field: "Concentrated Solar Power Plants Engineering", school: "Cadi Ayyad University", period: "2018 – 2020", honor: "Honors", thesis: "Enhancing thermal storage efficiency in CSP plants using novel PCM-based heat exchangers.", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Universite_Cadi_Ayyad.png/250px-Universite_Cadi_Ayyad.png" },
+  { degree: "Bachelor's Degree", field: "Electrical Engineering & Renewable Energies", school: "Hassan 1 University", period: "2018", honor: "Honors", thesis: "Techno-economic optimization of photovoltaic integration for a net-zero Marrakech Airport.", logo: "/logos/hassan1.png" },
+];
+
+const certificationGroups = [
+  {
+    title: "Professional Certifications",
+    items: [
+      { name: "Certified Energy Manager (CEM)", issuer: "Association of Energy Engineers (AEE)", countries: ["USA"], year: "2026", description: "Energy auditing, efficiency optimization, utility systems and strategic energy planning.", logo: "https://static.wixstatic.com/media/a26c8f_75febf9e91f2418f9c4910ad867f3dcf~mv2.jpg/v1/fill/w_717,h_316,al_c,q_80,enc_avif,quality_auto/AEE_Logo.jpg", link: "https://portal.aeecenter.org/custom/certificates/generate-certification-certificate.cfm?application_id=100199" },
+      { name: "EF SET C2 – English Proficiency", issuer: "EF SET", year: "2020", description: "C2 level for academic and professional communication in English.", logo: "https://images.seeklogo.com/logo-png/36/2/the-ef-standard-english-test-logo-png_seeklogo-363583.png", link: "https://www.efset.org/cert/1CEQCD" },
+    ],
+  },
+  {
+    title: "Technical Training",
+    items: [
+      { name: "Green Technology R&D Project Management", issuer: "KOICA", countries: ["South Korea"], year: "2023", description: "Planning and strategic management of sustainable building R&D projects.", logo: "https://www.intracen.org/sites/default/files/styles/large/public/media/image/media_image/2025/02/07/koica_logo.png" },
+      { name: "U-value Chamber Setup & Calibration", issuer: "Korea Conformity Laboratories (KCL)", countries: ["South Korea"], year: "2022", description: "Setting up, calibrating and using U-value climate chambers for thermal transmittance measurement.", logo: "/logos/kcl.png" },
+      { name: "Thermal Analysis Techniques for Material Characterization", issuer: "NETZSCH", countries: ["France", "Germany"], year: "2021", description: "DSC, TGA and HFM/LFA methods for thermal property evaluation of energy materials.", logo: "/logos/netzsch.png" },
+    ],
+  },
+  {
+    title: "International Academic Mobility",
+    items: [
+      { name: "Lecturer – Summer School on Buildings & Energy Efficiency", issuer: "Offenburg University of Applied Sciences", countries: ["Germany"], year: "2023", description: "Lectures on building energy modeling and sustainable thermal systems.", logo: LOGOS.offenburg },
+      { name: "Research Stay – Building Envelope & Energy Efficiency", issuer: "ENTPE", countries: ["France"], year: "2022", description: "Advanced envelope testing and energy performance strategies in European climates.", logo: "https://www.entpe.fr/sites/default/files/2018-09/entpe_logo_cmjn_couleur_baseline.png" },
+    ],
+  },
+];
+
+const platformsData = [
+  {
+    name: "ThermalSim",
+    tagline: "Building Simulation Platform",
+    description: "Web-based building simulation with advanced HVAC and energy systems modeling, bringing thermal analysis of buildings straight to the browser.",
+    url: "https://thermalsim.gsbpvn1.work/",
+    logo: "https://thermalsim.gsbpvn1.work/logooo.png",
+    tags: ["Building Simulation", "Advanced HVAC", "Energy Systems"],
+  },
+  {
+    name: "OSM Urban Viewer",
+    tagline: "Urban Mapping Platform",
+    description: "Interactive OpenStreetMap-based urban viewer to explore cities and select urban areas and buildings for analysis.",
+    url: "https://osmviewer.gsbpvn1.work/",
+    logo: "https://osmviewer.gsbpvn1.work/osm-viewer-logo.png",
+    tags: ["OpenStreetMap", "Urban View", "Area Selection"],
+  },
+];
+
+// Navbar: short top-level groups; groups with several sections open a sub-bar under the navbar
+const NAV_GROUPS = [
+  { label: "About", items: [{ id: "summary", label: "Summary" }] },
+  { label: "Experience", items: [{ id: "experience", label: "Experience" }] },
+  { label: "Projects", items: [{ id: "projects", label: "Research Projects" }, { id: "platforms", label: "Platforms" }] },
+  { label: "Education", items: [{ id: "education", label: "Education" }, { id: "certifications", label: "Certifications" }] },
+  { label: "Publications", items: [{ id: "publications", label: "Publications" }] },
+  { label: "Skills", items: [{ id: "skills", label: "Skills" }, { id: "languages", label: "Languages" }] },
+  { label: "Contact", items: [{ id: "contact", label: "Contact" }] },
+];
+
+// Logo tile that falls back to a styled name badge when no logo is available (or it fails to load)
+// Background for the tinted sections (tsParticles): a slow, sparse network of linked nodes,
+// like a molecular / energy-grid diagram, in the site's dark blue & dark purple.
+const initParticles = async (engine) => { await loadSlim(engine); };
+const reducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+const SectionParticles = ({ id, dark, className = "" }) => {
+  const options = useMemo(() => ({
+    fullScreen: { enable: false },
+    background: { color: { value: "transparent" } },
+    fpsLimit: 60,
+    detectRetina: true,
+    pauseOnBlur: true,
+    pauseOnOutsideViewport: true,
+    particles: {
+      number: { value: 38, density: { enable: true, width: 1400, height: 900 } },
+      paint: { fill: { enable: true, color: { value: dark ? ["#60a5fa", "#a78bfa"] : ["#1e3a8a", "#581c87"] } } },
+      links: { enable: true, distance: 170, color: dark ? "#64748b" : "#1e3a8a", opacity: dark ? 0.22 : 0.14, width: 1 },
+      move: { enable: !reducedMotion, speed: 0.35, outModes: { default: "bounce" } },
+      opacity: { value: dark ? 0.45 : 0.35 },
+      size: { value: { min: 1, max: 2.5 } },
+    },
+  }), [dark]);
+  return (
+    <div aria-hidden="true" className={`absolute inset-0 -z-10 pointer-events-none ${className}`}>
+      <ParticlesProvider init={initParticles}>
+        <Particles id={id} options={options} className="w-full h-full" />
+      </ParticlesProvider>
+    </div>
+  );
+};
+
+// Stats band background: one circuit trace crossing the band once, entering at the left edge (top) and leaving at the
+// bottom-right corner, with a drop just after the last figure (h-index). A pulse of current travels it blue left -> right,
+// exits at the corner, then comes back along the same path purple right -> left (SVG + Framer Motion).
+// Drawn in real pixels (measured) so the turn always sits right after the last figure.
+const EnergyGrid = ({ dark }) => {
+  const ref = useRef(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const { w, h } = size;
+  const top = 22, bottom = h - 22;
+  const gridRight = (w + Math.min(w, 1280)) / 2 - 24; // right edge of the figures (max-w-7xl container, px-6)
+  const turnX = Math.round(gridRight + 12);
+  const trace = dark ? "rgba(148,163,184,0.2)" : "rgba(30,58,138,0.16)";
+  const blue = dark ? "#60a5fa" : "#1d4ed8";
+  const purple = dark ? "#c084fc" : "#7e22ce";
+  const SPEED = 230, DASH = 70, PAUSE = 0.6;            // px/s, pulse length (px), rest between loops (s)
+  const len = turnX + (bottom - top) + (w - turnX); // full path length
+  const dur = len / SPEED;
+  const forward = `M0 ${top} H${turnX} V${bottom} H${w}`, backward = `M${w} ${bottom} H${turnX} V${top} H0`;
+  const legs = [
+    { d: forward, color: blue, delay: 0 },    // left edge -> exits bottom-right corner
+    { d: backward, color: purple, delay: dur + PAUSE }, // re-enters bottom-right -> exits left edge
+  ];
+  return (
+    <div ref={ref} aria-hidden="true" className="absolute inset-0 -z-10 pointer-events-none">
+      {w > 0 && h > 0 && (
+        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="absolute inset-0" xmlns="http://www.w3.org/2000/svg">
+          <defs><filter id="grid-glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
+          <path d={forward} fill="none" stroke={trace} strokeWidth="1.5" />
+          {!reducedMotion && legs.map((l, i) => (
+            <motion.path key={`${i}-${w}-${h}`} d={l.d} fill="none" stroke={l.color} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={`${DASH} ${len + DASH}`} filter="url(#grid-glow)"
+              initial={{ strokeDashoffset: DASH }} animate={{ strokeDashoffset: -len }} transition={{ duration: dur, delay: l.delay, repeat: Infinity, repeatDelay: dur + 2 * PAUSE, ease: "linear" }} />
+          ))}
+          {[[turnX, top, blue], [turnX, bottom, purple]].map(([x, y, c], i) => (
+            <motion.circle key={i} cx={x} cy={y} r="3" fill={c} filter="url(#grid-glow)"
+              initial={{ opacity: 0.35 }} animate={reducedMotion ? { opacity: 0.5 } : { opacity: [0.3, 0.9, 0.3] }} transition={{ duration: 3, delay: i * 1.5, repeat: Infinity, ease: "easeInOut" }} />
+          ))}
+        </svg>
+      )}
+    </div>
+  );
+};
+
+const PartnerLogo = ({ name, logo, dark, size = "md" }) => {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div title={name} className={`${size === "sm" ? "w-12 h-12 p-1.5" : "w-16 h-16 p-2"} rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${dark ? "bg-blue-950 border-blue-900" : "bg-white border-slate-200"}`}>
+      {logo && !failed
+        ? <img src={logo} alt={name} className="max-w-full max-h-full object-contain" onError={() => setFailed(true)} />
+        : <span className={`text-[10px] font-extrabold text-center leading-tight ${dark ? "text-white" : "text-slate-800"}`}>{name}</span>}
+    </div>
+  );
 };
 
 const publicationsData = [
@@ -178,7 +473,7 @@ const simulationTools = [
     { name: "AutoCAD", logo: "https://images.seeklogo.com/logo-png/48/2/autocad-logo-png_seeklogo-482394.png" },
     { name: "Solidworks", logo: "https://img.icons8.com/color/512/solidworks.png" },
     { name: "ANSYS", logo: "https://upload.wikimedia.org/wikipedia/commons/e/e5/ANSYS_logo.png" },
-    { name: "TRNSYS", logo: "https://usoftly.ir/wp-content/uploads/2024/02/TRNSYS-18.02.png" },
+    { name: "TRNSYS", logo: "/logos/trnsys.png" },
     { name: "DesignBuilder", logo: "https://designbuilder.co.uk/templates/r_explorer/custom/images/DesignBuilder-logo.png" },
     { name: "LabView", logo: "https://www.livewires-automation.co.uk/uploads/images/section-widget-images/NI-LabVIEW-Logo.png" },
     { name: "Python", logo: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" },
@@ -745,7 +1040,8 @@ const ChatLogic = ({ isModern, onOpenDesktop, messages, setMessages }) => {
   const [showDesktopConfirm, setShowDesktopConfirm] = useState(false);
   const endRef = useRef(null);
 
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [messages]);
+  // Braces matter: newer browsers return a Promise from scrollIntoView, which React would treat as a cleanup function
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -759,6 +1055,8 @@ const ChatLogic = ({ isModern, onOpenDesktop, messages, setMessages }) => {
     // Use the system constant defined at top
     const response = await callGemini(prompt, system);
     setMessages(prev => [...prev, { role: 'assistant', text: response }]);
+    // Still failing after all retries: put the question back so the user can resend without retyping
+    if (response.startsWith("Error:")) setInput(prev => prev || userMsg.text);
     setIsLoading(false);
   };
 
@@ -1166,8 +1464,14 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
-  const containerRef = useRef(null);
-  const [current, setCurrent] = useState(0);
+  const projectsRef = useRef(null);
+  // Hero portrait sizing (desktop): top of the head aligned with the top of the "Innovating" heading
+  const heroTitleRef = useRef(null);
+  const heroPhotoBoxRef = useRef(null);
+  const [heroPhotoH, setHeroPhotoH] = useState(null);
+  const [projCurrent, setProjCurrent] = useState(0);
+  const [current, setCurrent] = useState(0); // publications page index
+  const [perPage, setPerPage] = useState(3);
   const [expanded, setExpanded] = useState({});
 
   // EGG STATE MACHINE: 'LOCKED' | 'PROMPT' | 'LOADING_OS' | 'OS_ACTIVE' | 'IDLE_UNLOCKED' | 'CHAT_OPEN'
@@ -1177,11 +1481,17 @@ export default function App() {
   // CHAT MEMORY CORE (LIFTED STATE)
   const [chatMessages, setChatMessages] = useState([{ role: 'system', text: 'ImadBot AI Online. Ready to discuss research.' }]);
 
-  const sections = ["home", "summary", "experience", "education", "certifications", "skills", "languages", "publications", "contact"];
-  const heroSocials = [{ href: "https://www.linkedin.com/in/imadaitlaasri/", src: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/960px-LinkedIn_logo_initials.png", text: "LinkedIn" }, { href: "https://orcid.org/0000-0002-3977-5490", src: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/ORCID_logo.svg/960px-ORCID_logo.svg.png", text: "ORCID" }, { href: "https://www.researchgate.net/profile/Imad-Ait-Laasri", src: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/ResearchGate_icon_SVG.svg/1280px-ResearchGate_icon_SVG.svg.png", text: "ResearchGate" }];
+  const sections = ["home", ...NAV_GROUPS.flatMap(g => g.items.map(i => i.id))];
+  const activeGroup = NAV_GROUPS.find(g => g.items.some(i => i.id === activeSection));
+  const [menuGroup, setMenuGroup] = useState(null); // desktop dropdown (group label)
+  const desktopNavRef = useRef(null);
+  const [openGroup, setOpenGroup] = useState(null); // mobile accordion (group label)
+  const heroSocials = [{ href: "https://www.linkedin.com/in/imadaitlaasri/", src: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/LinkedIn_logo_initials.png/960px-LinkedIn_logo_initials.png", text: "LinkedIn" }, { href: "https://orcid.org/0000-0002-3977-5490", src: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/ORCID_logo.svg/960px-ORCID_logo.svg.png", text: "ORCID" }, { href: "https://www.researchgate.net/profile/Imad-Ait-Laasri", src: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/ResearchGate_icon_SVG.svg/1280px-ResearchGate_icon_SVG.svg.png", text: "ResearchGate" }, { href: "https://github.com/imadafla", src: "https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg", text: "GitHub", invertDark: true }];
 
   // 1. CLOUDFLARE ANALYTICS INJECTION
   useEffect(() => {
+    // Analytics only on the deployed site (the beacon rejects localhost with a CORS error)
+    if (["localhost", "127.0.0.1"].includes(window.location.hostname)) return;
     const script = document.createElement('script');
     script.src = 'https://static.cloudflareinsights.com/beacon.min.js';
     script.defer = true;
@@ -1194,13 +1504,47 @@ export default function App() {
   }, []);
 
   const toggleDarkMode = () => setDarkMode(!darkMode);
-  const updateSlideState = (idx) => { setCurrent(idx); setExpanded({}); };
+  const scrollProjectTo = (idx) => { const el = projectsRef.current; if (!el) return; const card = el.children[0]; el.scrollTo({ left: ((card ? card.offsetWidth : 0) + 24) * idx, behavior: "smooth" }); setProjCurrent(idx); };
+  const handleProjectsScroll = () => { const el = projectsRef.current; if (!el || !el.children[0]) return; const idx = Math.round(el.scrollLeft / (el.children[0].offsetWidth + 24)); if (idx !== projCurrent) setProjCurrent(idx); };
+  const pubPages = Math.ceil(publicationsData.length / perPage);
+  const goToPage = (idx) => { setCurrent(idx); setExpanded({}); };
   const toggleExpanded = (idx) => setExpanded(prev => ({...prev, [idx]: !prev[idx]}));
-  const scrollToCard = (idx) => { if (containerRef.current) { const firstCard = containerRef.current.children[0]; const cardWidth = firstCard ? firstCard.offsetWidth : 0; containerRef.current.scrollTo({ left: (cardWidth + 24) * idx, behavior: "smooth" }); updateSlideState(idx); }};
-  const prevSlide = () => scrollToCard(current === 0 ? publicationsData.length - 1 : current - 1);
-  const nextSlide = () => scrollToCard(current === publicationsData.length - 1 ? 0 : current + 1);
-  const handleScroll = () => { if (!containerRef.current) return; const idx = Math.round(containerRef.current.scrollLeft / (containerRef.current.children[0].offsetWidth + 24)); if (idx !== current) updateSlideState(idx); };
-  const scrollToSection = (id) => { setMobileMenuOpen(false); setTimeout(() => { const element = document.getElementById(id); if (element) { window.scrollTo({ top: element.getBoundingClientRect().top + window.pageYOffset - 80, behavior: "smooth" }); setActiveSection(id); }}, 50); };
+  const prevSlide = () => goToPage(current === 0 ? pubPages - 1 : current - 1);
+  const nextSlide = () => goToPage(current === pubPages - 1 ? 0 : current + 1);
+  const scrollToSection = (id) => { setMobileMenuOpen(false); setMenuGroup(null); setTimeout(() => { const element = document.getElementById(id); if (element) { window.scrollTo({ top: element.getBoundingClientRect().top + window.pageYOffset - 80, behavior: "smooth" }); setActiveSection(id); }}, 50); };
+
+  useEffect(() => { const onKey = (e) => { if (e.key === "Escape") setMenuGroup(null); }; const onDown = (e) => { if (desktopNavRef.current && !desktopNavRef.current.contains(e.target)) setMenuGroup(null); }; window.addEventListener("keydown", onKey); document.addEventListener("mousedown", onDown); return () => { window.removeEventListener("keydown", onKey); document.removeEventListener("mousedown", onDown); }; }, []);
+
+  // Publications: cards per page follow the screen width
+  useEffect(() => {
+    const update = () => setPerPage(window.innerWidth >= 1280 ? 3 : window.innerWidth >= 768 ? 2 : 1);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  useEffect(() => { setCurrent(c => Math.min(c, Math.ceil(publicationsData.length / perPage) - 1)); }, [perPage]);
+
+  useEffect(() => {
+    const PHOTO_TOP_MARGIN = 0.09;   // transparent space above the head in profile.png (9% of its height)
+    const PHOTO_ASPECT = 1023 / 1537; // width / height of profile.png
+    const measure = () => {
+      const title = heroTitleRef.current, box = heroPhotoBoxRef.current;
+      if (!title || !box || window.innerWidth < 768) { setHeroPhotoH(null); return; }
+      const fontSize = parseFloat(getComputedStyle(title).fontSize);
+      const capTop = title.getBoundingClientRect().top + fontSize * 0.245; // line-height half-leading + space above capitals
+      const boxRect = box.getBoundingClientRect();
+      const rowBottom = box.parentElement.getBoundingClientRect().bottom; // grid bottom: unaffected by the photo's slide-in animation
+      let h = (rowBottom - capTop) / (1 - PHOTO_TOP_MARGIN);
+      h = Math.min(h, (boxRect.width * 1.15) / PHOTO_ASPECT); // never spill far into the text column on narrow screens
+      setHeroPhotoH(Math.round(h));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (heroTitleRef.current) ro.observe(heroTitleRef.current.parentElement);
+    if (heroPhotoBoxRef.current) ro.observe(heroPhotoBoxRef.current);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
 
   // Timer for Fan visibility (1 minute)
   useEffect(() => { 
@@ -1276,7 +1620,7 @@ export default function App() {
   );
 
   return (
-    <div className="font-sans bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 transition-colors duration-500 overflow-x-hidden selection:bg-blue-200 selection:text-blue-900">
+    <div className="font-sans text-slate-800 dark:text-slate-200 transition-colors duration-500 overflow-x-hidden selection:bg-blue-200 selection:text-blue-900">
       
       {/* ---------------- EASTER EGG LAYERS ---------------- */}
       
@@ -1323,86 +1667,194 @@ export default function App() {
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-600/30 transition-transform group-hover:scale-105 group-hover:rotate-3 shrink-0"><span className="font-bold text-xl">IA</span></div>
             <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white hidden sm:block whitespace-nowrap">Dr. Imad AIT LAASRI</span>
           </div>
-          <div className="hidden xl:flex items-center space-x-1">
-            {sections.map((item) => <button key={item} onClick={() => scrollToSection(item)} className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeSection === item ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{item.charAt(0).toUpperCase() + item.slice(1)}</button>)}
+          <div className="hidden lg:flex items-center space-x-1">
+            <div ref={desktopNavRef} className="flex items-center space-x-1">
+              {NAV_GROUPS.map((g) => {
+                const multi = g.items.length > 1;
+                const open = menuGroup === g.label;
+                return (
+                  <div key={g.label} className="relative">
+                    <button onClick={() => multi ? setMenuGroup(open ? null : g.label) : scrollToSection(g.items[0].id)} className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-300 ${activeGroup === g || open ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}>{g.label}{multi && <ChevronDown size={14} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />}</button>
+                    <AnimatePresence>{multi && open && (
+                      <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.15 }} className="absolute left-0 top-full mt-2 min-w-[11rem] p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl">
+                        {g.items.map((item) => (<button key={item.id} onClick={() => scrollToSection(item.id)} className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${activeSection === item.id ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-300"}`}>{item.label}</button>))}
+                      </motion.div>
+                    )}</AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
             <div className="w-px h-6 bg-slate-300 dark:bg-slate-700 mx-4"></div>
-            {/* Dark Mode Toggle */}
-            <button onClick={toggleDarkMode} className="relative w-14 h-7 flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-1 transition shrink-0">
+            <button onClick={toggleDarkMode} aria-label="Toggle dark mode" className="relative w-14 h-7 flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-1 transition shrink-0">
                <Sun size={14} className="text-yellow-500 absolute left-1.5" />
                <Moon size={14} className="text-white absolute right-1.5" />
                <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform z-10 ${darkMode ? "translate-x-7" : "translate-x-0"}`}></span>
             </button>
           </div>
-          <div className="xl:hidden flex items-center gap-4">
-            <button onClick={toggleDarkMode} className="relative w-14 h-7 flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-1 transition shrink-0">
+          <div className="lg:hidden flex items-center gap-4">
+            <button onClick={toggleDarkMode} aria-label="Toggle dark mode" className="relative w-14 h-7 flex items-center bg-gray-200 dark:bg-gray-700 rounded-full p-1 transition shrink-0">
                <Sun size={14} className="text-yellow-500 absolute left-1.5" />
                <Moon size={14} className="text-white absolute right-1.5" />
                <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transform transition-transform z-10 ${darkMode ? "translate-x-7" : "translate-x-0"}`}></span>
             </button>
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-800 dark:text-slate-200 shrink-0">{mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
+            <button onClick={() => { setMobileMenuOpen(!mobileMenuOpen); setOpenGroup(activeGroup && activeGroup.items.length > 1 ? activeGroup.label : null); }} aria-label="Menu" className="p-2 text-slate-800 dark:text-slate-200 shrink-0">{mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
           </div>
         </div>
-        <AnimatePresence>{mobileMenuOpen && (<motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="xl:hidden bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl"><div className="flex flex-col p-4 space-y-2">{sections.map((item) => (<button key={item} onClick={() => scrollToSection(item)} className={`block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-colors ${activeSection === item ? "bg-blue-50 text-blue-700 dark:bg-slate-800 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>{item.charAt(0).toUpperCase() + item.slice(1)}</button>))}</div></motion.div>)}</AnimatePresence>
+        {/* Mobile menu: same-style titles; groups expand in place to show their sub-sections */}
+        <AnimatePresence>{mobileMenuOpen && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="lg:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 overflow-hidden shadow-xl">
+            <div className="flex flex-col p-4 space-y-1 max-h-[calc(100vh-5rem)] overflow-y-auto">
+              {NAV_GROUPS.map((g) => {
+                const multi = g.items.length > 1;
+                const open = openGroup === g.label;
+                return (
+                  <div key={g.label}>
+                    <button onClick={() => multi ? setOpenGroup(open ? null : g.label) : scrollToSection(g.items[0].id)} className={`flex items-center justify-between w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-colors ${activeGroup === g ? "bg-blue-50 text-blue-700 dark:bg-slate-800 dark:text-blue-400" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>
+                      {g.label}{multi && <ChevronDown size={18} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />}
+                    </button>
+                    <AnimatePresence initial={false}>{multi && open && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                        <div className="ml-6 my-1 pl-3 border-l-2 border-slate-200 dark:border-slate-700 space-y-1">
+                          {g.items.map((item) => (<button key={item.id} onClick={() => scrollToSection(item.id)} className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeSection === item.id ? "text-blue-700 dark:text-blue-400 bg-blue-50/60 dark:bg-slate-800/60" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"}`}>{item.label}</button>))}
+                        </div>
+                      </motion.div>
+                    )}</AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}</AnimatePresence>
       </motion.nav>
 
+
       {/* Hero */}
-      <section id="home" className="relative pt-24 overflow-hidden bg-slate-50 dark:bg-slate-900 flex flex-col justify-end" style={{ minHeight: "calc(100vh - 5rem)" }}>
-        <GridBackground />
-        <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-blue-400/20 rounded-full blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-400/20 rounded-full blur-[100px] animate-pulse delay-1000"></div>
+      <section id="home" className="relative pt-24 overflow-hidden flex flex-col justify-end min-h-[calc(100vh-5rem)] md:min-h-0 md:pt-32 bg-slate-50 dark:bg-slate-950 isolate">
+        <SectionParticles id="particles-home" dark={darkMode} className="[mask-image:linear-gradient(to_bottom,black_40%,transparent_62%)] md:[mask-image:linear-gradient(to_right,black_35%,transparent_58%)]" />
+        <div className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full bg-blue-800/20 dark:bg-blue-800/30 blur-[120px] pointer-events-none"></div>
+        <div className="absolute -bottom-32 -left-32 w-[32rem] h-[32rem] rounded-full bg-purple-800/20 dark:bg-purple-800/30 blur-[120px] pointer-events-none"></div>
         <div className="relative max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-8 md:gap-12 items-end z-10 w-full h-full flex-grow">
-          <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} className="text-center md:text-left pb-12 md:pb-24 self-center w-full">
+          <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} className="text-center md:text-left pb-12 md:pb-16 self-center md:self-end w-full">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold text-sm mb-8 border border-blue-200 dark:border-blue-800"><Zap size={16} className="fill-blue-600 text-blue-600 dark:text-blue-400 dark:fill-blue-400" />Scientist & Researcher</div>
-            <h1 className="text-5xl lg:text-7xl font-extrabold leading-tight mb-6 text-slate-900 dark:text-white">Innovating <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Energy Systems</span></h1>
-            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-300 mb-10 max-w-xl mx-auto md:mx-0 leading-relaxed">Experienced researcher in novel energy systems & materials for buildings. Specializing in R&D, modeling, and optimization to bridge the gap between theory and sustainable reality.</p>
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">{heroSocials.map((item, idx) => (<a key={idx} href={item.href} target="_blank" rel="noopener noreferrer" className="flex items-center px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:border-blue-500 transition-all hover:-translate-y-1 shadow-sm"><img src={item.src} alt={item.text} className="w-5 h-5 mr-3 object-contain" /><span className="font-medium">{item.text}</span></a>))}</div>
+            <h1 ref={heroTitleRef} className="text-5xl lg:text-7xl font-extrabold leading-tight mb-6 text-slate-900 dark:text-white">Innovating <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Energy Systems</span></h1>
+            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-300 mb-10 max-w-xl mx-auto md:mx-0 leading-relaxed md:text-justify">Experienced researcher in novel energy systems & materials for buildings. Specializing in R&D, modeling, and optimization to bridge the gap between theory and sustainable reality.</p>
+            <div className="flex flex-wrap justify-center md:justify-start gap-4">{heroSocials.map((item, idx) => (<a key={idx} href={item.href} target="_blank" rel="noopener noreferrer" className="flex items-center px-6 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:border-blue-500 transition-all hover:-translate-y-1 shadow-sm"><img src={item.src} alt={item.text} className={`w-5 h-5 mr-3 object-contain ${item.invertDark ? "dark:invert" : ""}`} /><span className="font-medium">{item.text}</span></a>))}</div>
           </motion.div>
-          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="relative w-full md:w-auto flex justify-center md:block md:absolute md:bottom-0 md:right-6 md:z-10">
-              <img src="/profile.png" alt="Dr. Imad AIT LAASRI" className="w-auto h-auto max-h-[320px] md:max-h-[40vh] xl:max-h-[65vh] md:w-[28vw] md:max-w-[320px] xl:w-auto xl:max-w-none object-contain object-bottom drop-shadow-2xl dark:drop-shadow-[0_0_4px_rgba(255,255,255,1)] transition-all duration-500 ease-in-out" />
+          <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} ref={heroPhotoBoxRef} className="relative w-full flex justify-center md:block md:self-stretch">
+              <img src="/profile.png" alt="Dr. Imad AIT LAASRI" style={heroPhotoH ? { height: heroPhotoH } : undefined} className="w-auto h-auto max-h-[320px] md:absolute md:bottom-0 md:right-0 md:max-h-none md:max-w-none object-contain object-bottom drop-shadow-2xl dark:drop-shadow-[0_0_4px_rgba(255,255,255,1)] transition-all duration-500 ease-in-out" />
           </motion.div>
         </div>
       </section>
 
       {/* Stats */}
-      <div className="bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 py-16 relative z-20">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-slate-100 dark:divide-slate-800">
-          {[{ label: "Years Experience", value: "4+" }, { label: "Publications", value: "20+" }, { label: "Projects", value: "10+" }, { label: "Teaching Roles", value: "3+" }].map((stat, idx) => (<div key={idx} className="flex flex-col items-center group cursor-default"><span className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-blue-600 to-purple-600 transition-transform group-hover:scale-110 duration-300 inline-block">{stat.value}</span><span className="text-sm font-bold text-slate-500 dark:text-slate-400 mt-2 uppercase tracking-widest">{stat.label}</span></div>))}
+      <div className="bg-gradient-to-r from-blue-100 via-white to-purple-100 dark:from-blue-950 dark:via-slate-900 dark:to-purple-950 py-16 relative z-20 isolate overflow-hidden shadow-lg shadow-blue-900/5 dark:shadow-blue-950/30">
+        <EnergyGrid dark={darkMode} />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 dark:via-blue-400/60 to-transparent"></div>
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-purple-500/50 dark:via-purple-400/60 to-transparent"></div>
+        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-center divide-x divide-blue-900/25 dark:divide-white/25">
+          {[{ label: "Years in R&D", value: "5+" }, { label: "Publications", value: "30+" }, { label: "Citations", value: "700+" }, { label: "h-index", value: "13" }].map((stat, idx) => (<div key={idx} className="flex flex-col items-center group cursor-default"><span className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-blue-800 to-purple-700 dark:from-blue-300 dark:via-white dark:to-purple-300 drop-shadow-[0_2px_10px_rgba(30,58,138,0.15)] dark:drop-shadow-[0_0_18px_rgba(147,197,253,0.35)] transition-transform group-hover:scale-110 duration-300 inline-block">{stat.value}</span><span className="text-sm font-bold text-blue-950/60 dark:text-blue-100/70 mt-2 uppercase tracking-widest">{stat.label}</span></div>))}
         </div>
       </div>
 
       {/* Summary */}
-      <section id="summary" className="py-24 bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-80 h-80 bg-blue-100/20 dark:bg-blue-400/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-80 h-80 bg-purple-100/20 dark:bg-purple-400/10 rounded-full blur-3xl"></div>
+      <section id="summary" className="py-24 relative overflow-hidden bg-white dark:bg-slate-900">
         <div className="max-w-6xl mx-auto px-6 relative z-10">
           <SectionHeader title="Scientific Summary" subtitle="Bridging advanced simulation with experimental reality." />
           <div className="flex flex-col md:flex-row items-center gap-12">
-            <div className="flex-1 space-y-6" data-aos="fade-right"><p className="text-lg md:text-xl text-slate-700 dark:text-slate-300 leading-relaxed text-justify">I am a researcher in innovative energy systems and sustainable building materials, specializing in PCM-based thermal storage, HVAC optimization, and adaptive building technologies. My work integrates experimental testing, AI-driven simulations, and smart control strategies to improve energy efficiency and indoor comfort. I hold a PhD in Energy, Thermal & Sustainable Building Technology, have led the creation of a DHW and HVAC performance lab, taught graduate courses, published 20+ peer-reviewed papers, and actively collaborate in international academic and industrial networks.</p></div>
+            <div className="flex-1 space-y-6" data-aos="fade-right">
+              <p className="text-lg md:text-xl text-slate-700 dark:text-slate-300 leading-relaxed">Research scientist in <strong className="text-slate-900 dark:text-white">thermal energy storage</strong> and <strong className="text-slate-900 dark:text-white">sustainable energy systems</strong> for buildings. I combine experimental testing, computational modeling and smart control, from Phase Change Materials (PCM) and heat exchanger design to Model Predictive Control (MPC) and multi-energy optimization, to deliver energy-efficient, energy-flexible and low-carbon buildings and districts.</p>
+              <ul className="space-y-3">
+                {["PhD with highest honors in Energy, Thermal & Sustainable Building Technology (PCM for passive & active systems)", "Built a DHW & HVAC thermal testing laboratory at Green Energy Park", "30+ peer-reviewed papers · 700+ citations · h-index 13", "Principal Investigator of an international hydrogen energy systems project (Switzerland – Morocco)"].map((item, i) => (<li key={i} className="flex items-start gap-3 text-slate-600 dark:text-slate-300"><span className="mt-2 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>{item}</li>))}
+              </ul>
+            </div>
             <div className="flex-1 flex justify-center md:justify-end" data-aos="fade-left"><img src="/smart_energy_efficiency.png" alt="Smart Energy Efficiency" className="w-full max-w-sm drop-shadow-xl" /></div>
           </div>
           <div className="flex flex-wrap justify-center gap-6 mt-16" data-aos="fade-up">
-              {[{ text: "Phase Change Composites", icon: "https://cdn-icons-png.flaticon.com/512/5847/5847623.png" }, { text: "Energy Storage", icon: "https://cdn-icons-png.flaticon.com/512/4092/4092242.png" }, { text: "Building Optimisation", icon: "/energy_efficiency.png" }, { text: "CFD", icon: "https://cdn-icons-png.flaticon.com/512/4907/4907928.png" }, { text: "Passive & Active Control", icon: "/passive_active.png" }].map((keyword, idx) => (<div key={idx} className="flex flex-col items-center bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 p-4 w-36 hover:shadow-lg transition-all hover:-translate-y-1"><img src={keyword.icon} alt={keyword.text} className="w-10 h-10 mb-3 object-contain" /><span className="text-center text-xs font-bold text-slate-800 dark:text-slate-200">{keyword.text}</span></div>))}
-           </div>
+              {[{ text: "Phase Change Composites", icon: "https://cdn-icons-png.flaticon.com/512/5847/5847623.png" }, { text: "Energy Storage", icon: "https://cdn-icons-png.flaticon.com/512/4092/4092242.png" }, { text: "Building Optimisation", icon: "/energy_efficiency.png" }, { text: "CFD", icon: "https://cdn-icons-png.flaticon.com/512/4907/4907928.png" }, { text: "Passive & Active Control", icon: "/passive_active.png" }].map((keyword, idx) => (<div key={idx} className="flex flex-col items-center bg-slate-50 dark:bg-slate-950 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 p-4 w-36 hover:shadow-lg transition-all hover:-translate-y-1"><img src={keyword.icon} alt={keyword.text} className="w-10 h-10 mb-3 object-contain" /><span className="text-center text-xs font-bold text-slate-800 dark:text-slate-200">{keyword.text}</span></div>))}
+          </div>
         </div>
       </section>
 
       {/* Experience */}
-      <section id="experience" className="py-24 relative overflow-hidden bg-white dark:bg-slate-900">
-        <GridBackground />
+      <section id="experience" className="py-24 relative overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 dark:from-blue-950/40 dark:via-slate-950 dark:to-purple-950/40 relative isolate">
+        <SectionParticles id="particles-experience" dark={darkMode} />
         <div className="max-w-5xl mx-auto px-6 relative z-10">
           <SectionHeader title="Professional Experience" subtitle="A timeline of research, leadership, and academic instruction." />
-          <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-4 md:ml-6 space-y-12">
-            {[{ company: "Green Energy Park", role: "Researcher / Scientist", period: "2021–Present", logo: "https://www.greenenergypark.ma/_next/image?url=%2Fimages%2Flogos%2Fgep.png&w=384&q=75", details: ["Focus on energy-efficient solutions and phase change materials", "Develop hybrid AI models for predictive simulations", "Combine experimental testing with numerical modeling"] }, { company: "University Mohammed VI Polytechnic", role: "Adjunct Professor", period: "2024-2025", logo: "https://upload.wikimedia.org/wikipedia/commons/b/bf/UM6P_wordmark_%282024%29.svg", details: ["Teaching energy systems and sustainable building technologies."] }, { company: "University Hassan 2", role: "Adjunct Professor", period: "2021-2022", logo: "https://vectorseek.com/wp-content/uploads/2023/08/Universite-Hassan-2-de-Casablanca-Maroc-Logo-Vector.svg--300x231.png", details: ["Teaching fluid dynamics and heat transfer simulations."] }].map((exp, idx) => (<div key={idx} className="relative pl-8 md:pl-12 group" data-aos="fade-up" data-aos-delay={idx * 100}><div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-600 border-4 border-white dark:border-slate-900 shadow-sm group-hover:scale-150 transition-transform"></div><div className="bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-sm hover:shadow-xl border border-slate-200 dark:border-slate-800 transition-all duration-300"><div className="flex flex-col md:flex-row gap-6 items-start md:items-center mb-6"><div className="w-20 h-20 p-2 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"><img src={exp.logo} alt={exp.company} className="max-w-full max-h-full object-contain" /></div><div><h3 className="text-xl font-bold text-slate-900 dark:text-white">{exp.role}</h3><div className="flex flex-wrap items-center gap-2 text-slate-500 text-sm font-semibold mt-1"><span>{exp.company}</span><span className="hidden md:inline">•</span><span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs">{exp.period}</span></div></div></div><ul className="space-y-3">{exp.details.map((detail, i) => (<li key={i} className="flex items-start gap-3 text-slate-600 dark:text-slate-300 text-sm"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>{detail}</li>))}</ul></div></div>))}
+          <div className="relative border-l-2 border-slate-200 dark:border-slate-700 ml-4 md:ml-6 space-y-10">
+            {experienceData.map((exp, idx) => (
+              <div key={idx} className="relative pl-8 md:pl-12 group" data-aos="fade-up">
+                <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-600 border-4 border-white dark:border-slate-900 shadow-sm group-hover:scale-150 transition-transform"></div>
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm hover:shadow-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                  <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center mb-5">
+                    <div className="w-20 h-20 p-2 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"><img src={exp.logo} alt={exp.company} className="max-w-full max-h-full object-contain" /></div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">{exp.role}</h3>
+                      <div className="flex flex-wrap items-center gap-2 text-slate-500 text-sm font-semibold mt-2"><span>{exp.company}</span><span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs">{exp.period}</span><span className="text-xs font-medium text-slate-400">{exp.location}</span></div>
+                    </div>
+                  </div>
+                  <ul className="space-y-3">{exp.details.map((detail, i) => (<li key={i} className="flex items-start gap-3 text-slate-600 dark:text-slate-300 text-sm leading-relaxed"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>{detail}</li>))}</ul>
+                  {exp.tags && <div className="flex flex-wrap gap-2 mt-5">{exp.tags.map((tag) => (<span key={tag} className="px-3 py-1 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 rounded-full text-xs font-semibold border border-slate-200 dark:border-slate-700">{tag}</span>))}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Projects & Platforms */}
+      <section id="projects" className="py-24 relative overflow-hidden bg-white dark:bg-slate-900">
+        <div className="max-w-6xl mx-auto px-6 relative z-10">
+          <SectionHeader title="Projects & Platforms" subtitle="Funded research projects and the digital platforms developed from them." />
+          <h3 className="text-center text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-8">Research Projects & Fundings</h3>
+          <div ref={projectsRef} onScroll={handleProjectsScroll} className="flex items-stretch gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-6 px-6 scroll-px-6 pb-8">
+            {projectsData.map((project, idx) => (
+              <div key={idx} className="snap-start shrink-0 w-[85vw] max-w-[340px] sm:w-[340px] flex flex-col bg-slate-50 dark:bg-slate-950 p-5 rounded-2xl shadow-sm hover:shadow-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex gap-2">{project.partners.map((partner) => <PartnerLogo key={partner.name} size="sm" {...partner} />)}</div>
+                  <div className="flex gap-1 shrink-0">{project.countries.map((country) => (<img key={country} src={FLAGS[country]} alt={country} title={country} className="w-6 h-4 object-cover rounded-[3px] border border-slate-200 dark:border-slate-700" />))}</div>
+                </div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug">{project.title}</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-2 mb-4 flex-1">{project.summary}</p>
+                <dl className="text-xs space-y-1.5 mb-4">
+                  <div className="flex gap-2"><dt className="w-14 shrink-0 font-bold uppercase tracking-wider text-slate-400">Role</dt><dd className="font-semibold text-slate-800 dark:text-slate-200">{project.role}</dd></div>
+                  <div className="flex gap-2"><dt className="w-14 shrink-0 font-bold uppercase tracking-wider text-slate-400">Funding</dt><dd className="font-semibold text-slate-800 dark:text-slate-200">{project.funder}</dd></div>
+                  <div className="flex gap-2"><dt className="w-14 shrink-0 font-bold uppercase tracking-wider text-slate-400">Period</dt><dd><span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full font-semibold">{project.period || "Ongoing"}</span></dd></div>
+                </dl>
+                <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex flex-wrap gap-1.5">{project.tags.map((tag) => (<span key={tag} className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 rounded-full text-[11px] font-semibold border border-slate-200 dark:border-slate-700">{tag}</span>))}</div>
+                  {project.link && <a href={project.link} target="_blank" rel="noopener noreferrer" className="shrink-0 inline-flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">Website <ExternalLink size={13} /></a>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-center items-center gap-6 mt-2"><button onClick={() => scrollProjectTo(Math.max(projCurrent - 1, 0))} aria-label="Previous project" className="p-4 rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-600 dark:text-slate-300 hover:scale-110 hover:text-blue-600 transition-all border border-slate-100 dark:border-slate-700"><ChevronLeft size={24} /></button><div className="flex gap-2">{projectsData.map((_, idx) => (<button key={idx} onClick={() => scrollProjectTo(idx)} aria-label={`Project ${idx + 1}`} className={`h-2.5 rounded-full transition-all duration-300 ${idx === projCurrent ? 'w-8 bg-blue-600' : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-blue-400'}`} />))}</div><button onClick={() => scrollProjectTo(Math.min(projCurrent + 1, projectsData.length - 1))} aria-label="Next project" className="p-4 rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-600 dark:text-slate-300 hover:scale-110 hover:text-blue-600 transition-all border border-slate-100 dark:border-slate-700"><ChevronRight size={24} /></button></div>
+
+          <div id="platforms" className="pt-20">
+            <h3 className="text-center text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-8">Platforms Developed</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              {platformsData.map((platform, idx) => (
+                <div key={idx} className="flex flex-col bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-sm hover:shadow-xl border border-slate-200 dark:border-slate-800 transition-all duration-300">
+                  <div className="flex items-center gap-5 mb-5">
+                    <div className="w-20 h-20 p-2 bg-white rounded-xl border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"><img src={platform.logo} alt={platform.name} className="max-w-full max-h-full object-contain" /></div>
+                    <div><h3 className="text-xl font-bold text-slate-900 dark:text-white">{platform.name}</h3><span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs font-semibold">{platform.tagline}</span></div>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-5 flex-1">{platform.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-6">{platform.tags.map((tag) => (<span key={tag} className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full text-xs font-semibold border border-slate-200 dark:border-slate-700">{tag}</span>))}</div>
+                  <div className="pt-5 border-t border-slate-200 dark:border-slate-800"><a href={platform.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">Launch Platform <ExternalLink size={14} /></a></div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* Education */}
-      <section id="education" className="py-24 bg-slate-50 dark:bg-slate-950">
+      <section id="education" className="py-24 bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 dark:from-blue-950/40 dark:via-slate-950 dark:to-purple-950/40 relative isolate">
+        <SectionParticles id="particles-education" dark={darkMode} />
         <div className="max-w-6xl mx-auto px-6">
-          <SectionHeader title="Academic Background" subtitle="Foundations in Renewable Energy & Thermal Physics." />
+          <SectionHeader title="Academic Background" subtitle="Foundations in thermal energy, solar power and renewable energy engineering." />
           <div className="grid md:grid-cols-3 gap-8">
-            {[{ degree: "PhD in Energy Systems", school: "Cadi Ayyad University", period: "2021–2024", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Universite_Cadi_Ayyad.png/250px-Universite_Cadi_Ayyad.png" }, { degree: "Master in Solar Power", school: "Cadi Ayyad University", period: "2018–2020", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Universite_Cadi_Ayyad.png/250px-Universite_Cadi_Ayyad.png" }, { degree: "Bachelor Renewable Energy", school: "Hassan 1 University", period: "2018", logo: "https://seeklogo.com/images/U/universite-hassan-1er-settat-logo-7155C7CC1B-seeklogo.com.png" }].map((edu, idx) => (<motion.div key={idx} whileHover={{ y: -8 }} className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm hover:shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center text-center transition-all group"><div className="h-24 w-24 mb-6 flex items-center justify-center p-2 rounded-full bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors"><img src={edu.logo} alt={edu.school} className="max-h-full max-w-full object-contain" /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 leading-tight">{edu.degree}</h3><p className="text-blue-600 dark:text-blue-400 font-bold text-sm mb-4">{edu.school}</p><span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-xs font-mono rounded-full border border-slate-200 dark:border-slate-700">{edu.period}</span></motion.div>))}
+            {educationData.map((edu, idx) => (<motion.div key={idx} whileHover={{ y: -8 }} className="bg-white dark:bg-slate-900 p-8 rounded-2xl shadow-sm hover:shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center transition-all group"><div className="h-24 w-24 mb-6 flex items-center justify-center p-2 rounded-full bg-slate-50 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/20 transition-colors"><img src={edu.logo} alt={edu.school} className="max-h-full max-w-full object-contain" /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{edu.degree}</h3><p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-1 mb-2">{edu.field}</p><p className="text-blue-600 dark:text-blue-400 font-bold text-sm mb-4">{edu.school}</p><div className="flex flex-wrap justify-center gap-2 mb-4"><span className="px-3 py-1 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-xs font-mono rounded-full border border-slate-200 dark:border-slate-700">{edu.period}</span><span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded-full">{edu.honor}</span></div><p className="text-xs text-slate-500 dark:text-slate-400 italic leading-relaxed"><span className="font-bold not-italic">Thesis:</span> {edu.thesis}</p></motion.div>))}
           </div>
         </div>
       </section>
@@ -1410,63 +1862,88 @@ export default function App() {
       {/* Certifications */}
       <section id="certifications" className="py-24 bg-white dark:bg-slate-900">
         <div className="max-w-4xl mx-auto px-6">
-          <SectionHeader title="Certifications" subtitle="Continuous professional development." />
-          <div className="grid gap-4">
-            {[{ name: "Certified Energy Manager (CEM) – AEE (Association of Energy Engineers)", period: "2026", logo: "https://static.wixstatic.com/media/a26c8f_75febf9e91f2418f9c4910ad867f3dcf~mv2.jpg/v1/fill/w_717,h_316,al_c,q_80,enc_avif,quality_auto/AEE_Logo.jpg" }, { name: "KOICA Training: Green Technology R&D", period: "2023", logo: "https://www.intracen.org/sites/default/files/styles/large/public/media/image/media_image/2025/02/07/koica_logo.png" }, { name: "Summer School Lecturer on Efficiency", period: "2023", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/HSO_Logo_Quer_RGB_positiv.svg/250px-HSO_Logo_Quer_RGB_positiv.svg.png" }, { name: "Research Stay – Building Envelope", period: "2022", logo: "https://www.entpe.fr/sites/default/files/2018-09/entpe_logo_cmjn_couleur_baseline.png" }, { name: "EF SET C2 – English Proficiency", period: "2020", logo: "https://images.seeklogo.com/logo-png/36/2/the-ef-standard-english-test-logo-png_seeklogo-363583.png", link: "https://www.efset.org/cert/1CEQCD" }].map((cert, idx) => (<a key={idx} href={cert.link} target={cert.link ? "_blank" : "_self"} className={`flex items-center gap-6 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500 transition-all hover:shadow-lg group ${cert.link ? 'cursor-pointer' : 'cursor-default'}`}><div className="w-16 h-16 bg-white rounded-lg p-2 flex items-center justify-center border border-slate-100 shadow-sm shrink-0"><img src={cert.logo} alt={cert.name} className="max-w-full max-h-full object-contain" /></div><div className="flex-1"><h4 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{cert.name}</h4><p className="text-sm text-slate-500 font-medium">{cert.period}</p></div>{cert.link && <ExternalLink size={20} className="text-slate-400 group-hover:text-blue-500" />}</a>))}
+          <SectionHeader title="Certifications & Training" subtitle="Continuous professional development." />
+          <div className="space-y-12">
+            {certificationGroups.map((group) => (
+              <div key={group.title}>
+                <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-4">{group.title}</h3>
+                <div className="space-y-4">
+                  {group.items.map((cert, idx) => { const Tag = cert.link ? "a" : "div"; return (
+                    <Tag key={idx} {...(cert.link ? { href: cert.link, target: "_blank", rel: "noopener noreferrer" } : {})} className={`flex items-center gap-5 bg-slate-50 dark:bg-slate-950 p-4 md:p-5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all hover:shadow-lg group ${cert.link ? "hover:border-blue-500 dark:hover:border-blue-500 cursor-pointer" : ""}`}>
+                      <PartnerLogo name={cert.issuer} logo={cert.logo} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1"><h4 className="text-base md:text-lg font-bold text-slate-900 dark:text-white leading-snug group-hover:text-blue-600 transition-colors">{cert.name}</h4><span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs font-semibold">{cert.year}</span>{cert.countries?.map((country) => (<img key={country} src={FLAGS[country]} alt={country} title={country} className="w-6 h-4 object-cover rounded-[3px] border border-slate-200 dark:border-slate-700" />))}</div>
+                        <p className="text-sm text-slate-500 font-medium mt-0.5">{cert.issuer}</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 hidden sm:block">{cert.description}</p>
+                      </div>
+                      {cert.link && <ExternalLink size={20} className="text-slate-400 group-hover:text-blue-500 shrink-0" />}
+                    </Tag>
+                  ); })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Publications */}
+      <section id="publications" className="py-24 overflow-hidden bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 dark:from-blue-950/40 dark:via-slate-950 dark:to-purple-950/40 relative isolate">
+        <SectionParticles id="particles-publications" dark={darkMode} />
+        <div className="max-w-7xl mx-auto px-6">
+          <SectionHeader title="Selected Publications" subtitle="Contributing to the global body of knowledge." />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-12">
+            {[{ value: "704", label: "Citations", src: "Google Scholar", href: "https://scholar.google.com/citations?user=eyGE7LUAAAAJ&hl=fr" }, { value: "13", label: "h-index", src: "Google Scholar", href: "https://scholar.google.com/citations?user=eyGE7LUAAAAJ&hl=fr" }, { value: "16", label: "i10-index", src: "Google Scholar", href: "https://scholar.google.com/citations?user=eyGE7LUAAAAJ&hl=fr" }, { value: "593", label: "Citations", src: "Scopus", href: "https://www.scopus.com/authid/detail.uri?authorId=57328216800" }].map((m, i) => (<a key={i} href={m.href} target="_blank" rel="noopener noreferrer" className="group bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm text-center hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all"><div className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-br from-blue-600 to-purple-600">{m.value}</div><div className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mt-1">{m.label}</div><div className="inline-flex items-center gap-1 text-[11px] text-slate-400 group-hover:text-blue-600 transition-colors">{m.src} <ExternalLink size={10} /></div></a>))}
+          </div>
+          <div className="relative">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={`${current}-${perPage}`} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.2} onDragEnd={(e, info) => { if (info.offset.x < -60) nextSlide(); else if (info.offset.x > 60) prevSlide(); }} className="grid gap-6 pb-10" style={{ gridTemplateColumns: `repeat(${perPage}, minmax(0, 1fr))` }}>
+                {publicationsData.slice(current * perPage, current * perPage + perPage).map((paper, i) => { const idx = current * perPage + i; return (<div key={idx} className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-800 transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-2xl"><div className="h-60 bg-white p-3 flex items-center justify-center border-b border-slate-100 dark:border-slate-800 relative group overflow-hidden"><img src={paper.image} alt="Paper Visual" className="w-full h-full object-contain z-10 transition-transform duration-500 group-hover:scale-105" /></div><div className="p-6 flex flex-col flex-1"><div className="flex items-center gap-2 mb-3"><span className="w-2 h-2 rounded-full bg-green-500"></span><div className="text-xs font-bold text-slate-500 uppercase tracking-widest">{paper.journal}</div></div><h3 className="text-lg font-bold text-slate-900 dark:text-white mb-3 line-clamp-2 leading-tight" title={paper.title}>{paper.title}</h3><p className="text-sm text-slate-500 dark:text-slate-400 mb-4 font-medium italic">{paper.authors}</p><div className="relative flex-1"><p className={`text-slate-600 dark:text-slate-300 text-sm leading-relaxed transition-all duration-300 ${expanded[idx] ? '' : 'line-clamp-3'}`}>{paper.abstract}</p><button onClick={() => toggleExpanded(idx)} className="mt-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:underline focus:outline-none flex items-center gap-1">{expanded[idx] ? "Show Less" : "Read Abstract"}</button></div><div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center"><span className="text-xs text-slate-400 font-mono">SCIENTIFIC PAPER</span><a href={paper.link} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">View Paper <ExternalLink size={14} /></a></div></div></div>); })}
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex justify-center items-center gap-6 mt-4"><button onClick={prevSlide} aria-label="Previous publications" className="p-4 rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-600 dark:text-slate-300 hover:scale-110 hover:text-blue-600 transition-all border border-slate-100 dark:border-slate-700"><ChevronLeft size={24} /></button><div className="flex gap-2">{Array.from({ length: pubPages }).map((_, idx) => (<button key={idx} onClick={() => goToPage(idx)} aria-label={`Page ${idx + 1}`} className={`h-2.5 rounded-full transition-all duration-300 ${idx === current ? 'w-8 bg-blue-600' : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-blue-400'}`} />))}</div><button onClick={nextSlide} aria-label="Next publications" className="p-4 rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-600 dark:text-slate-300 hover:scale-110 hover:text-blue-600 transition-all border border-slate-100 dark:border-slate-700"><ChevronRight size={24} /></button></div>
           </div>
         </div>
       </section>
 
       {/* Skills */}
-      <section id="skills" className="py-24 bg-slate-50 dark:bg-slate-950">
+      <section id="skills" className="py-24 bg-white dark:bg-slate-900">
         <div className="max-w-6xl mx-auto px-6">
           <SectionHeader title="Technical Arsenal" subtitle="Tools and frameworks for advanced energy modeling." />
           <div className="mb-16">
             <h3 className="text-center text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-8">Programming Languages</h3>
             <div className="flex flex-wrap justify-center gap-6">
-              {[{ name: "Python", logo: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" }, { name: "MATLAB", logo: "https://upload.wikimedia.org/wikipedia/commons/2/21/Matlab_Logo.png" }, { name: "R", logo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/R_logo.svg" }, { name: "C++", logo: "https://upload.wikimedia.org/wikipedia/commons/1/18/ISO_C%2B%2B_Logo.svg" }].map((skill, idx) => (<motion.div key={idx} whileHover={{ y: -8, scale: 1.05 }} className="w-32 h-36 bg-white dark:bg-slate-900 rounded-2xl flex flex-col items-center justify-center shadow-md border border-slate-100 dark:border-slate-800 transition-shadow hover:shadow-xl"><img src={skill.logo} alt={skill.name} className="w-14 h-14 mb-4 object-contain" /><span className="font-bold text-sm text-slate-700 dark:text-slate-200">{skill.name}</span></motion.div>))}
+              {[{ name: "Python", logo: "https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" }, { name: "MATLAB", logo: "https://upload.wikimedia.org/wikipedia/commons/2/21/Matlab_Logo.png" }, { name: "R", logo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/R_logo.svg" }, { name: "C++", logo: "https://upload.wikimedia.org/wikipedia/commons/1/18/ISO_C%2B%2B_Logo.svg" }].map((skill, idx) => (<motion.div key={idx} whileHover={{ y: -8, scale: 1.05 }} className="w-32 h-36 bg-slate-50 dark:bg-slate-950 rounded-2xl flex flex-col items-center justify-center shadow-md border border-slate-100 dark:border-slate-800 transition-shadow hover:shadow-xl"><img src={skill.logo} alt={skill.name} className="w-14 h-14 mb-4 object-contain" /><span className="font-bold text-sm text-slate-700 dark:text-slate-200">{skill.name}</span></motion.div>))}
             </div>
           </div>
           <div>
               <h3 className="text-center text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-8">Simulation & Modeling</h3>
               <div className="flex flex-wrap justify-center gap-4">
-                {simulationTools.map((tool, idx) => (<motion.div key={idx} whileHover={{ y: -5 }} className="w-24 h-28 bg-white dark:bg-slate-900 rounded-xl flex flex-col items-center justify-center shadow-sm border border-slate-100 dark:border-slate-800 transition-all hover:border-blue-400 hover:shadow-lg"><img src={tool.logo} alt={tool.name} className="w-10 h-10 mb-2 object-contain" /><span className="text-xs font-semibold text-slate-700 dark:text-slate-300 text-center px-1 truncate w-full">{tool.name}</span></motion.div>))}
+                {simulationTools.map((tool, idx) => (<motion.div key={idx} whileHover={{ y: -5 }} className="w-24 h-28 bg-slate-50 dark:bg-slate-950 rounded-xl flex flex-col items-center justify-center shadow-sm border border-slate-100 dark:border-slate-800 transition-all hover:border-blue-400 hover:shadow-lg"><img src={tool.logo} alt={tool.name} className="w-10 h-10 mb-2 object-contain" /><span className="text-xs font-semibold text-slate-700 dark:text-slate-300 text-center px-1 truncate w-full">{tool.name}</span></motion.div>))}
               </div>
           </div>
         </div>
       </section>
 
       {/* Languages */}
-      <section id="languages" className="py-24 bg-white dark:bg-slate-900">
+      <section id="languages" className="py-24 bg-gradient-to-br from-blue-50 via-slate-50 to-purple-50 dark:from-blue-950/40 dark:via-slate-950 dark:to-purple-950/40 relative isolate">
+        <SectionParticles id="particles-languages" dark={darkMode} />
         <div className="max-w-3xl mx-auto px-6">
            <SectionHeader title="Languages" subtitle="Communication proficiency." />
            <div className="space-y-6">
-             {[{ name: "Arabic", level: 100, label: "Native" }, { name: "French", level: 95, label: "Full Professional" }, { name: "English", level: 95, label: "Full Professional" }].map((lang, idx) => (<div key={idx} className="bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800"><div className="flex justify-between mb-4"><span className="font-bold text-lg text-slate-900 dark:text-white">{lang.name}</span><span className="text-sm text-blue-600 dark:text-blue-400 font-bold uppercase">{lang.label}</span></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden"><motion.div initial={{ width: 0 }} whileInView={{ width: `${lang.level}%` }} viewport={{ once: true }} transition={{ duration: 1.5, ease: "easeOut" }} className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" /></div></div>))}
+             {[{ name: "Arabic", level: 100, label: "Native" }, { name: "French", level: 95, label: "Full Professional" }, { name: "English", level: 95, label: "Full Professional" }].map((lang, idx) => (<div key={idx} className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800"><div className="flex justify-between mb-4"><span className="font-bold text-lg text-slate-900 dark:text-white">{lang.name}</span><span className="text-sm text-blue-600 dark:text-blue-400 font-bold uppercase">{lang.label}</span></div><div className="h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden"><motion.div initial={{ width: 0 }} whileInView={{ width: `${lang.level}%` }} viewport={{ once: true }} transition={{ duration: 1.5, ease: "easeOut" }} className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" /></div></div>))}
            </div>
-        </div>
-      </section>
-
-      {/* Publications */}
-      <section id="publications" className="py-24 bg-slate-50 dark:bg-slate-950 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6">
-          <SectionHeader title="Selected Publications" subtitle="Contributing to the global body of knowledge." />
-          <div className="relative">
-            <div ref={containerRef} onScroll={handleScroll} className="flex gap-8 overflow-x-auto snap-x snap-mandatory pb-12 scrollbar-hide px-4" style={{ scrollBehavior: 'smooth' }}>{publicationsData.map((paper, idx) => (<div key={idx} className="snap-center shrink-0 w-[90vw] md:w-[600px] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-xl overflow-hidden border border-slate-100 dark:border-slate-800 transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-2xl"><div className="h-64 bg-slate-100 dark:bg-slate-950 p-8 flex items-center justify-center border-b border-slate-100 dark:border-slate-800 relative group"><img src={paper.image} alt="Paper Visual" className="h-full object-contain z-10 transition-transform duration-500 group-hover:scale-105" /></div><div className="p-8 flex flex-col flex-1"><div className="flex items-center gap-2 mb-3"><span className="w-2 h-2 rounded-full bg-green-500"></span><div className="text-xs font-bold text-slate-500 uppercase tracking-widest">{paper.journal}</div></div><h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4 line-clamp-2 leading-tight" title={paper.title}>{paper.title}</h3><p className="text-sm text-slate-500 dark:text-slate-400 mb-4 font-medium italic">{paper.authors}</p><div className="relative flex-1"><p className={`text-slate-600 dark:text-slate-300 text-sm leading-relaxed transition-all duration-300 ${expanded[idx] ? '' : 'line-clamp-4'}`}>{paper.abstract}</p><button onClick={() => toggleExpanded(idx)} className="mt-3 text-blue-600 dark:text-blue-400 font-bold text-sm hover:underline focus:outline-none flex items-center gap-1">{expanded[idx] ? "Show Less" : "Read Abstract"}</button></div><div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center"><span className="text-xs text-slate-400 font-mono">SCIENTIFIC PAPER</span><a href={paper.link} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 rounded-lg text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">View Paper <ExternalLink size={14} /></a></div></div></div>))}</div>
-            <div className="flex justify-center items-center gap-6 mt-4"><button onClick={prevSlide} className="p-4 rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-600 dark:text-slate-300 hover:scale-110 hover:text-blue-600 transition-all border border-slate-100 dark:border-slate-700"><ChevronLeft size={24} /></button><div className="flex gap-2">{publicationsData.map((_, idx) => (<button key={idx} onClick={() => scrollToCard(idx)} className={`h-2.5 rounded-full transition-all duration-300 ${idx === current ? 'w-8 bg-blue-600' : 'w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-blue-400'}`} />))}</div><button onClick={nextSlide} className="p-4 rounded-full bg-white dark:bg-slate-800 shadow-lg text-slate-600 dark:text-slate-300 hover:scale-110 hover:text-blue-600 transition-all border border-slate-100 dark:border-slate-700"><ChevronRight size={24} /></button></div>
-          </div>
         </div>
       </section>
 
       {/* Contact */}
       <section id="contact" className="py-24 relative overflow-hidden bg-white dark:bg-slate-900">
-        <GridBackground />
         <div className="max-w-4xl mx-auto px-6 relative z-10 text-center">
           <SectionHeader title="Get in Touch" subtitle="Open to collaboration on research, industrial projects, and academic ventures." />
           <div className="grid lg:grid-cols-2 gap-6 mb-12">
             <motion.a href="mailto:imadaitlaasri@gmail.com" whileHover={{ scale: 1.02 }} className="flex items-center p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-blue-500 group transition-all shadow-sm hover:shadow-md"><div className="w-14 h-14 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center text-blue-600 shadow-sm group-hover:bg-blue-600 group-hover:text-white transition-colors border border-slate-100 dark:border-slate-800 shrink-0"><Mail size={24} /></div><div className="ml-4 text-left overflow-hidden"><div className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-1">Email</div><div className="text-lg font-bold text-slate-900 dark:text-white truncate">imadaitlaasri@gmail.com</div></div></motion.a>
             <motion.div whileHover={{ scale: 1.02 }} className="flex items-center p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm"><div className="w-14 h-14 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center text-purple-600 shadow-sm border border-slate-100 dark:border-slate-800 shrink-0"><MapPin size={24} /></div><div className="ml-4 text-left"><div className="text-xs text-slate-500 uppercase font-bold tracking-widest mb-1">Location</div><div className="text-lg font-bold text-slate-900 dark:text-white">Marrakech, Morocco</div></div></motion.div>
           </div>
-          <div className="flex flex-wrap justify-center gap-6">{heroSocials.map((social, idx) => (<a key={idx} href={social.href} target="_blank" rel="noreferrer" className="w-16 h-16 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-white hover:border-blue-500 transition-all hover:scale-110 hover:shadow-lg" title={social.text}><img src={social.src} alt={social.text} className="w-8 h-8 object-contain opacity-75 hover:opacity-100 transition-opacity" /></a>))}</div>
+          <div className="flex flex-wrap justify-center gap-6">{heroSocials.map((social, idx) => (<a key={idx} href={social.href} target="_blank" rel="noreferrer" className="group w-16 h-16 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-white hover:border-blue-500 transition-all hover:scale-110 hover:shadow-lg" title={social.text}><img src={social.src} alt={social.text} className={`w-8 h-8 object-contain opacity-75 hover:opacity-100 transition-opacity ${social.invertDark ? "dark:invert dark:group-hover:invert-0" : ""}`} /></a>))}</div>
           <footer className="mt-20 pt-10 border-t border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-500 text-sm"><div className="mb-2">© {new Date().getFullYear()} <span className="font-bold text-blue-600 dark:text-blue-400">Dr. Imad AIT LAASRI</span>. All rights reserved.</div><div>Website designed and developed by <span className="font-bold text-slate-700 dark:text-slate-300">Dr. Imad AIT LAASRI</span>.</div></footer>
         </div>
       </section>
