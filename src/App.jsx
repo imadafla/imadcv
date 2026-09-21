@@ -116,7 +116,6 @@ const LOGOS = {
   um6p: "https://upload.wikimedia.org/wikipedia/commons/b/bf/UM6P_wordmark_%282024%29.svg",
   ocp: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/OCP_Group.svg/330px-OCP_Group.svg.png",
   daad: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/DAAD_Logo.svg/330px-DAAD_Logo.svg.png",
-  kth: "/logos/kth-white.svg",
   empa: "/logos/empa.png",
   offenburg: "/logos/offenburg.png",
 };
@@ -143,16 +142,6 @@ const projectsData = [
     partners: [{ name: "Green Energy Park", logo: LOGOS.gep }, { name: "Empa", logo: LOGOS.empa }],
     tags: ["Green Hydrogen", "Multi-Energy Systems", "Control"],
     link: "https://www.hes-so.ch/en/recherche-innovation/research-projects/detail-projet-recherche/optimizing-hydrogen-integration",
-  },
-  {
-    title: "HYSTORE – Hybrid Services from Advanced Thermal Energy Storage",
-    summary: "PCM thermal storage modeling with lumped-resistance models and MILP optimization, in collaboration with the KTH team.",
-    role: "Collaborator (KTH team)",
-    funder: "Horizon Europe (EU)",
-    countries: ["European Union", "Sweden"],
-    partners: [{ name: "KTH Royal Institute of Technology", logo: LOGOS.kth, dark: true }, { name: "Green Energy Park", logo: LOGOS.gep }],
-    tags: ["PCM Storage", "MILP Optimization", "Lumped Models"],
-    link: "https://www.hystore-project.eu/",
   },
   {
     title: "Green Smart Building – Chaire EESEPS",
